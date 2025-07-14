@@ -24,6 +24,44 @@ interface VerificationEvent {
   };
 }
 
+interface Provider {
+  initializeVerification: (options: {
+    sessionId: string;
+    token: string;
+    container: HTMLElement;
+    mode: 'embedded' | 'popup';
+    config: {
+      publicKey: string;
+      qrCode?: boolean;
+    };
+  }) => Promise<unknown>;
+  destroy: () => void;
+}
+
+interface VecuIDVConstructor {
+  new (config: {
+    apiKey: string;
+    apiUrl: string;
+    environment: string;
+    providers: {
+      socure: {
+        publicKey: string;
+        environment: string;
+        qrCode: boolean;
+      };
+    };
+  }): {
+    initialized: boolean;
+    activeSessions: Map<string, VerificationSession>;
+    providerLoader: {
+      load: (provider: string) => Promise<Provider>;
+    };
+    providerRegistry?: Map<string, Provider>;
+    destroy: () => void;
+    on: (event: string, handler: (event: VerificationEvent) => void) => void;
+  };
+}
+
 interface EventLog {
   id: number;
   message: string;
@@ -39,7 +77,16 @@ export default function Home() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [events, setEvents] = useState<EventLog[]>([]);
   const [sdkLoaded, setSdkLoaded] = useState(false);
-  const vecuIDVRef = useRef<any>(null);
+  const vecuIDVRef = useRef<{ 
+    initialized: boolean;
+    activeSessions: Map<string, VerificationSession>;
+    providerLoader: {
+      load: (provider: string) => Promise<Provider>;
+    };
+    providerRegistry?: Map<string, Provider>;
+    destroy: () => void;
+    on: (event: string, handler: (event: VerificationEvent) => void) => void;
+  } | null>(null);
   const currentSessionRef = useRef<VerificationSession | null>(null);
   const eventCounterRef = useRef(0);
 
@@ -72,12 +119,13 @@ export default function Home() {
       (window as Window & { MOCK_MODE?: boolean }).MOCK_MODE = mode === 'mock';
       
       // Wait for SDK to be loaded
-      if (!sdkLoaded || !(window as any).VecuIDV) {
+      const windowWithSDK = window as unknown as Window & { VecuIDV?: { VecuIDV: VecuIDVConstructor } };
+      if (!sdkLoaded || !windowWithSDK.VecuIDV) {
         logEvent('SDK not loaded yet. Please wait...', 'error');
         return;
       }
       
-      const VecuIDV = (window as any).VecuIDV.VecuIDV;
+      const VecuIDV = windowWithSDK.VecuIDV.VecuIDV;
       
       // Initialize SDK
       vecuIDVRef.current = new VecuIDV({
