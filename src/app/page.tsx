@@ -41,10 +41,12 @@ export default function Home() {
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const vecuIDVRef = useRef<any>(null);
   const currentSessionRef = useRef<VerificationSession | null>(null);
+  const eventCounterRef = useRef(0);
 
   const logEvent = (message: string, type: EventLog['type'] = 'info') => {
+    eventCounterRef.current += 1;
     const newEvent: EventLog = {
-      id: Date.now(),
+      id: Date.now() + eventCounterRef.current, // Combine timestamp with counter for uniqueness
       message,
       type,
       timestamp: new Date().toLocaleTimeString()
@@ -236,7 +238,7 @@ export default function Home() {
             
             {/* Mode Toggle */}
             <div className="mb-6 flex gap-6">
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-900 font-medium">
                 <input
                   type="radio"
                   name="mode"
@@ -247,7 +249,7 @@ export default function Home() {
                 />
                 Mock Mode (UI Testing)
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center text-gray-900 font-medium">
                 <input
                   type="radio"
                   name="mode"
