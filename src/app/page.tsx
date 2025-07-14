@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import type { VecuIDV, VerificationSession, VerificationEvent } from 'vecu-idv-web-sdk';
 
 type Mode = 'mock' | 'live';
 
@@ -18,8 +19,8 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3000/api');
   const [isVerifying, setIsVerifying] = useState(false);
   const [events, setEvents] = useState<EventLog[]>([]);
-  const vecuIDVRef = useRef<any>(null);
-  const currentSessionRef = useRef<any>(null);
+  const vecuIDVRef = useRef<VecuIDV | null>(null);
+  const currentSessionRef = useRef<VerificationSession | null>(null);
 
   const logEvent = (message: string, type: EventLog['type'] = 'info') => {
     const newEvent: EventLog = {
@@ -46,7 +47,7 @@ export default function Home() {
       logEvent('Initializing VECU IDV SDK...');
       
       // Set mock mode
-      (window as any).MOCK_MODE = mode === 'mock';
+      (window as Window & { MOCK_MODE?: boolean }).MOCK_MODE = mode === 'mock';
       
       // Dynamically import the SDK
       const { VecuIDV } = await import('vecu-idv-web-sdk');
@@ -66,20 +67,20 @@ export default function Home() {
       });
       
       // Subscribe to events
-      vecuIDVRef.current.on('*', (event: any) => {
+      vecuIDVRef.current.on('*', (event: VerificationEvent) => {
         logEvent(`Event: ${event.type} - ${JSON.stringify(event.data)}`);
       });
       
-      vecuIDVRef.current.on('verification:completed', (event: any) => {
+      vecuIDVRef.current.on('verification:completed', (event: VerificationEvent) => {
         logEvent('Verification completed successfully!', 'success');
         console.log('Verification result:', event.data);
       });
       
-      vecuIDVRef.current.on('verification:failed', (event: any) => {
+      vecuIDVRef.current.on('verification:failed', (event: VerificationEvent) => {
         logEvent(`Verification failed: ${event.data.error}`, 'error');
       });
       
-      vecuIDVRef.current.on('error', (event: any) => {
+      vecuIDVRef.current.on('error', (event: VerificationEvent) => {
         logEvent(`Error: ${event.data.message}`, 'error');
       });
       
@@ -90,11 +91,11 @@ export default function Home() {
       vecuIDVRef.current.initialized = true;
       
       // Create a minimal session for testing with real Socure SDK
-      const testSessionData = {
+      const testSessionData: VerificationSession = {
         id: 'test-session-' + Date.now(),
         provider: 'socure',
         providerSessionId: docvToken,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -188,7 +189,7 @@ export default function Home() {
               <li>Enter your Socure SDK Key (public key like sdk_sandbox_xxxxx)</li>
               <li>The docvTransactionToken is pre-filled with your test token</li>
               <li>Choose Mock Mode for UI testing or Live Mode for real integration</li>
-              <li>Click "Start Verification" to test the flow</li>
+              <li>Click &quot;Start Verification&quot; to test the flow</li>
             </ol>
           </div>
 

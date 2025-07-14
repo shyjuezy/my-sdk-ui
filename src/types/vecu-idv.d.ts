@@ -23,12 +23,16 @@ declare module 'vecu-idv-web-sdk' {
 
   export interface VerificationEvent {
     type: string;
-    data: any;
+    data: {
+      [key: string]: unknown;
+      error?: string;
+      message?: string;
+    };
   }
 
   export interface VerificationResult {
     success: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
     error?: string;
   }
 
@@ -42,7 +46,7 @@ declare module 'vecu-idv-web-sdk' {
         publicKey: string;
         qrCode?: boolean;
       };
-    }): Promise<any>;
+    }): Promise<unknown>;
     destroy(): void;
   }
 
@@ -63,7 +67,7 @@ declare module 'vecu-idv-web-sdk' {
     off(event: string, handler: (event: VerificationEvent) => void): void;
     
     createVerification(options: {
-      user?: any;
+      user?: Record<string, unknown>;
       container?: string;
       preferredProvider?: string;
     }): Promise<VerificationSession>;

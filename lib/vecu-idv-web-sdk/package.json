@@ -1,0 +1,68 @@
+{
+  "name": "vecu-idv-web-sdk",
+  "version": "1.0.0",
+  "description": "VECU Identity Verification Web SDK",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "browser": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc",
+    "serve:example": "npx http-server . -p 8080 -c-1",
+    "dev:example": "npm run build && npm run serve:example",
+    "test:socure": "node examples/test-socure-node.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "identity-verification",
+    "kyc",
+    "idv",
+    "vecu",
+    "sdk"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vecu-idv-web-sdk"
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=14"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.1.1",
+    "rollup": "^4.9.1",
+    "tslib": "^2.6.2",
+    "typedoc": "^0.25.4",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  }
+}
