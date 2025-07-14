@@ -1,9 +1,28 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { VecuIDV, VerificationSession, VerificationEvent } from 'vecu-idv-web-sdk';
+import Script from 'next/script';
 
 type Mode = 'mock' | 'live';
+
+// Define types inline since we're loading SDK via script
+interface VerificationSession {
+  id: string;
+  provider: string;
+  providerSessionId: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface VerificationEvent {
+  type: string;
+  data: {
+    [key: string]: unknown;
+    error?: string;
+    message?: string;
+  };
+}
 
 interface EventLog {
   id: number;
@@ -19,7 +38,8 @@ export default function Home() {
   const [apiUrl, setApiUrl] = useState('http://localhost:3000/api');
   const [isVerifying, setIsVerifying] = useState(false);
   const [events, setEvents] = useState<EventLog[]>([]);
-  const vecuIDVRef = useRef<VecuIDV | null>(null);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
+  const vecuIDVRef = useRef<any>(null);
   const currentSessionRef = useRef<VerificationSession | null>(null);
 
   const logEvent = (message: string, type: EventLog['type'] = 'info') => {
@@ -49,8 +69,13 @@ export default function Home() {
       // Set mock mode
       (window as Window & { MOCK_MODE?: boolean }).MOCK_MODE = mode === 'mock';
       
-      // Dynamically import the SDK
-      const { VecuIDV } = await import('vecu-idv-web-sdk');
+      // Wait for SDK to be loaded
+      if (!sdkLoaded || !(window as any).VecuIDV) {
+        logEvent('SDK not loaded yet. Please wait...', 'error');
+        return;
+      }
+      
+      const VecuIDV = (window as any).VecuIDV.VecuIDV;
       
       // Initialize SDK
       vecuIDVRef.current = new VecuIDV({
@@ -177,7 +202,19 @@ export default function Home() {
   }, [mode]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-5">
+    <>
+      <Script 
+        src="/lib/vecu-idv-web-sdk/dist/index.umd.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          setSdkLoaded(true);
+          logEvent('VECU IDV SDK loaded successfully');
+        }}
+        onError={() => {
+          logEvent('Failed to load VECU IDV SDK', 'error');
+        }}
+      />
+      <div className="min-h-screen bg-gray-50 py-10 px-5">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-semibold text-gray-800 mb-8">Test Socure Integration</h1>
@@ -185,7 +222,7 @@ export default function Home() {
           {/* Instructions */}
           <div className="bg-blue-50 p-6 rounded-lg mb-8">
             <h3 className="text-lg font-semibold text-blue-900 mb-3">How to Test</h3>
-            <ol className="list-decimal list-inside text-gray-700 space-y-2">
+            <ol className="list-decimal list-inside text-gray-900 space-y-2">
               <li>Enter your Socure SDK Key (public key like sdk_sandbox_xxxxx)</li>
               <li>The docvTransactionToken is pre-filled with your test token</li>
               <li>Choose Mock Mode for UI testing or Live Mode for real integration</li>
@@ -235,7 +272,7 @@ export default function Home() {
                   value={sdkKey}
                   onChange={(e) => setSdkKey(e.target.value)}
                   placeholder="sdk_sandbox_xxxxx"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <div className="text-sm text-gray-600 mt-1">
                   Your Socure public SDK key (starts with sdk_)
@@ -251,7 +288,7 @@ export default function Home() {
                   id="docv-token"
                   value={docvToken}
                   onChange={(e) => setDocvToken(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <div className="text-sm text-gray-600 mt-1">
                   The docvTransactionToken from your backend API
@@ -267,7 +304,7 @@ export default function Home() {
                   id="api-url"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <div className="text-sm text-gray-600 mt-1">
                   Your backend API endpoint (only used in Live Mode)
@@ -331,5 +368,6 @@ export default function Home() {
         </div>
       </div>
     </div>
+    </>
   );
 }
