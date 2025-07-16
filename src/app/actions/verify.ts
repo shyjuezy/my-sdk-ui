@@ -1,10 +1,14 @@
 'use server';
 
+import { getPhoneNumberForAPI } from '@/lib/validation';
+
 export interface VerificationRequest {
   customerInfo: {
     firstName: string;
     lastName: string;
     middleName?: string;
+    email?: string;
+    phone?: string;
     address: {
       line_1: string;
       line_2?: string;
@@ -32,6 +36,11 @@ export interface VerificationResponse {
 export async function startVerification(
   request: VerificationRequest
 ): Promise<VerificationResponse> {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('=== Server Action: Start Verification ===');
+    console.log('Incoming request:', JSON.stringify(request, null, 2));
+  }
+  
   try {
     const { customerInfo } = request;
 
@@ -45,6 +54,8 @@ export async function startVerification(
         firstName: customerInfo.firstName,
         lastName: customerInfo.lastName,
         ...(customerInfo.middleName && { middleName: customerInfo.middleName }),
+        ...(customerInfo.email && { email: customerInfo.email }),
+        ...(customerInfo.phone && { phone: getPhoneNumberForAPI(customerInfo.phone) }),
         address: {
           ...customerInfo.address,
           ...(customerInfo.address.line_2 === '' && { line_2: undefined }),
@@ -54,6 +65,11 @@ export async function startVerification(
         }
       }
     };
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Request URL:', 'https://mpbahqqt37.execute-api.us-east-1.amazonaws.com/latest/identity/verify/start');
+      console.log('API Request Body:', JSON.stringify(requestBody, null, 2));
+    }
 
     const response = await fetch(
       'https://mpbahqqt37.execute-api.us-east-1.amazonaws.com/latest/identity/verify/start',
@@ -67,8 +83,17 @@ export async function startVerification(
       }
     );
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response Status:', response.status, response.statusText);
+      console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
+    }
+
     if (response.ok) {
       const data = await response.json();
+      if (process.env.NODE_ENV === 'development') {
+        console.log('API Response Data:', JSON.stringify(data, null, 2));
+        console.log('=== Server Action: Success ===');
+      }
       return {
         success: true,
         data,
@@ -76,14 +101,24 @@ export async function startVerification(
       };
     } else {
       let errorMessage = 'Failed to start verification';
+      let errorData = null;
       
       try {
-        const errorData = await response.json();
+        errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('API Error Response Data:', JSON.stringify(errorData, null, 2));
+        }
       } catch {
         errorMessage = `${response.status} ${response.statusText}`;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('API Error: Non-JSON response');
+        }
       }
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== Server Action: API Error ===');
+      }
       return {
         success: false,
         error: errorMessage,
@@ -91,7 +126,13 @@ export async function startVerification(
       };
     }
   } catch (error) {
-    console.error('Server action error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('=== Server Action: Exception ===');
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('==============================');
+    }
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
       return {
