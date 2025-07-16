@@ -1,423 +1,249 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import Script from 'next/script';
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import { startVerification } from "@/app/actions/verify";
 
-type Mode = 'mock' | 'live';
-
-// Define types inline since we're loading SDK via script
-interface VerificationSession {
-  id: string;
-  provider: string;
-  providerSessionId: string;
-  status: 'pending' | 'completed' | 'failed';
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface VerificationEvent {
-  type: string;
-  data: {
-    [key: string]: unknown;
-    error?: string;
-    message?: string;
+interface CustomerInfo {
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  address: {
+    line_1: string;
+    line_2?: string;
+    locality: string;
+    minor_admin_division?: string;
+    major_admin_division: string;
+    country: string;
+    postal_code: string;
+    type: string;
   };
-}
-
-interface Provider {
-  initializeVerification: (options: {
-    sessionId: string;
-    token: string;
-    container: HTMLElement;
-    mode: 'embedded' | 'popup';
-    config: {
-      publicKey: string;
-      qrCode?: boolean;
-    };
-  }) => Promise<unknown>;
-  destroy: () => void;
-}
-
-interface VecuIDVConstructor {
-  new (config: {
-    apiKey: string;
-    apiUrl: string;
-    environment: string;
-    providers: {
-      socure: {
-        publicKey: string;
-        environment: string;
-        qrCode: boolean;
-      };
-    };
-  }): {
-    initialized: boolean;
-    activeSessions: Map<string, VerificationSession>;
-    providerLoader: {
-      load: (provider: string) => Promise<Provider>;
-    };
-    providerRegistry?: Map<string, Provider>;
-    destroy: () => void;
-    on: (event: string, handler: (event: VerificationEvent) => void) => void;
-  };
-}
-
-interface EventLog {
-  id: number;
-  message: string;
-  type: 'info' | 'success' | 'error';
-  timestamp: string;
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>('mock');
-  const [sdkKey, setSdkKey] = useState('');
-  const [docvToken, setDocvToken] = useState('89b904e8-c2b7-4af4-8126-b905ca98520a');
-  const [apiUrl, setApiUrl] = useState('http://localhost:3000/api');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [events, setEvents] = useState<EventLog[]>([]);
-  const [sdkLoaded, setSdkLoaded] = useState(false);
-  const vecuIDVRef = useRef<{ 
-    initialized: boolean;
-    activeSessions: Map<string, VerificationSession>;
-    providerLoader: {
-      load: (provider: string) => Promise<Provider>;
-    };
-    providerRegistry?: Map<string, Provider>;
-    destroy: () => void;
-    on: (event: string, handler: (event: VerificationEvent) => void) => void;
-  } | null>(null);
-  const currentSessionRef = useRef<VerificationSession | null>(null);
-  const eventCounterRef = useRef(0);
+  const [formData, setFormData] = useState<CustomerInfo>({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    address: {
+      line_1: "",
+      line_2: "",
+      locality: "",
+      minor_admin_division: "",
+      major_admin_division: "",
+      country: "US",
+      postal_code: "",
+      type: "HOME",
+    },
+  });
 
-  const logEvent = (message: string, type: EventLog['type'] = 'info') => {
-    eventCounterRef.current += 1;
-    const newEvent: EventLog = {
-      id: Date.now() + eventCounterRef.current, // Combine timestamp with counter for uniqueness
-      message,
-      type,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    setEvents(prev => [newEvent, ...prev]);
-  };
-
-  const startVerification = async () => {
-    if (!sdkKey.trim()) {
-      alert('Please enter your Socure SDK Key');
-      return;
-    }
-    if (!docvToken.trim()) {
-      alert('Please enter a docvTransactionToken');
-      return;
-    }
-
-    try {
-      setIsVerifying(true);
-      logEvent('Initializing VECU IDV SDK...');
-      
-      // Set mock mode
-      (window as Window & { MOCK_MODE?: boolean }).MOCK_MODE = mode === 'mock';
-      
-      // Wait for SDK to be loaded
-      const windowWithSDK = window as unknown as Window & { VecuIDV?: { VecuIDV: VecuIDVConstructor } };
-      if (!sdkLoaded || !windowWithSDK.VecuIDV) {
-        logEvent('SDK not loaded yet. Please wait...', 'error');
-        return;
-      }
-      
-      const VecuIDV = windowWithSDK.VecuIDV.VecuIDV;
-      
-      // Initialize SDK
-      vecuIDVRef.current = new VecuIDV({
-        apiKey: mode === 'mock' ? 'test-api-key' : 'your-real-api-key',
-        apiUrl: apiUrl,
-        environment: 'development',
-        providers: {
-          socure: {
-            publicKey: sdkKey,
-            environment: 'sandbox',
-            qrCode: true
-          }
+  const verificationMutation = useMutation({
+    mutationFn: startVerification,
+    onSuccess: (response) => {
+      if (response.success) {
+        alert('Verification started successfully!');
+        console.log('Verification response:', response.data);
+        // Optionally clear the form
+        // setFormData({ ...initialFormData });
+      } else {
+        if (response.statusCode === 401) {
+          alert(`Authentication failed: ${response.error}`);
+        } else if (response.statusCode === 400) {
+          alert(`Invalid request: ${response.error}\nPlease check your input data.`);
+        } else {
+          alert(`Error: ${response.error}`);
         }
-      });
-      
-      // Subscribe to events
-      vecuIDVRef.current.on('*', (event: VerificationEvent) => {
-        logEvent(`Event: ${event.type} - ${JSON.stringify(event.data)}`);
-      });
-      
-      vecuIDVRef.current.on('verification:completed', (event: VerificationEvent) => {
-        logEvent('Verification completed successfully!', 'success');
-        console.log('Verification result:', event.data);
-      });
-      
-      vecuIDVRef.current.on('verification:failed', (event: VerificationEvent) => {
-        logEvent(`Verification failed: ${event.data.error}`, 'error');
-      });
-      
-      vecuIDVRef.current.on('error', (event: VerificationEvent) => {
-        logEvent(`Error: ${event.data.message}`, 'error');
-      });
-      
-      // Skip SDK initialization to avoid backend requirement
-      logEvent('Skipping VECU SDK init - working directly with Socure');
-      
-      // Force the SDK to be initialized without calling the backend
-      vecuIDVRef.current.initialized = true;
-      
-      // Create a minimal session for testing with real Socure SDK
-      const testSessionData: VerificationSession = {
-        id: 'test-session-' + Date.now(),
-        provider: 'socure',
-        providerSessionId: docvToken,
-        status: 'pending' as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Store the session in the SDK's active sessions
-      vecuIDVRef.current.activeSessions.set(testSessionData.id, testSessionData);
-      
-      logEvent(`Using Socure ${mode === 'mock' ? 'mock' : 'real SDK'} with token: ${docvToken.substring(0, 8)}...`);
-      
-      // Load the Socure provider
-      logEvent('Loading Socure provider...');
-      const provider = await vecuIDVRef.current.providerLoader.load('socure');
-      logEvent('Socure provider loaded');
-      
-      // Initialize the verification UI directly with the provider
-      const container = document.querySelector('#verification-container');
-      if (!container) {
-        throw new Error('Verification container not found');
       }
-      
-      await provider.initializeVerification({
-        sessionId: testSessionData.id,
-        token: docvToken,
-        container: container as HTMLElement,
-        mode: 'embedded',
-        config: {
-          publicKey: sdkKey,
-          qrCode: true
-        }
-      });
-      
-      logEvent('Socure verification UI initialized');
-      currentSessionRef.current = testSessionData;
-      
-      logEvent('Verification UI started - waiting for user interaction');
-      
-    } catch (error) {
-      logEvent(`Error: ${(error as Error).message}`, 'error');
-      console.error('Verification error:', error);
-      setIsVerifying(false);
+    },
+    onError: (error) => {
+      console.error('Mutation error:', error);
+      alert('An unexpected error occurred. Please try again.');
+    },
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    if (name.startsWith("address.")) {
+      const addressField = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [addressField]: value,
+        },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
   };
 
-  const stopVerification = async () => {
-    logEvent('Stopping verification...');
-    
-    try {
-      // Clean up the provider if it exists
-      if (vecuIDVRef.current) {
-        const provider = vecuIDVRef.current.providerRegistry?.get('socure');
-        if (provider) {
-          provider.destroy();
-          logEvent('Socure provider destroyed');
-        }
-        
-        // Clear active sessions without API calls
-        vecuIDVRef.current.activeSessions.clear();
-        vecuIDVRef.current.destroy();
-        vecuIDVRef.current = null;
-        logEvent('SDK destroyed');
-      }
-    } catch (error) {
-      logEvent(`Error cleaning up: ${(error as Error).message}`, 'error');
-    }
-    
-    // Reset UI
-    setIsVerifying(false);
-    const container = document.getElementById('verification-container');
-    if (container) {
-      container.innerHTML = 'Verification UI will appear here';
-    }
-    
-    logEvent('Verification stopped');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Use the mutation to submit the form
+    verificationMutation.mutate({
+      customerInfo: formData
+    });
   };
-  
-  // Log mode changes
-  useEffect(() => {
-    logEvent(`Switched to ${mode} mode`);
-  }, [mode]);
 
   return (
-    <>
-      <Script 
-        src="/lib/vecu-idv-web-sdk/dist/index.umd.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          setSdkLoaded(true);
-          logEvent('VECU IDV SDK loaded successfully');
-        }}
-        onError={() => {
-          logEvent('Failed to load VECU IDV SDK', 'error');
-        }}
-      />
-      <div className="min-h-screen bg-gray-50 py-10 px-5">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-8">
-          <h1 className="text-3xl font-semibold text-gray-800 mb-8">Test Socure Integration</h1>
-          
-          {/* Instructions */}
-          <div className="bg-blue-50 p-6 rounded-lg mb-8">
-            <h3 className="text-lg font-semibold text-blue-900 mb-3">How to Test</h3>
-            <ol className="list-decimal list-inside text-gray-900 space-y-2">
-              <li>Enter your Socure SDK Key (public key like sdk_sandbox_xxxxx)</li>
-              <li>The docvTransactionToken is pre-filled with your test token</li>
-              <li>Choose Mock Mode for UI testing or Live Mode for real integration</li>
-              <li>Click &quot;Start Verification&quot; to test the flow</li>
-            </ol>
-          </div>
-
-          {/* Configuration */}
-          <div className="bg-gray-50 p-6 rounded-lg mb-8">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">Configuration</h2>
-            
-            {/* Mode Toggle */}
-            <div className="mb-6 flex gap-6">
-              <label className="flex items-center text-gray-900 font-medium">
-                <input
-                  type="radio"
-                  name="mode"
-                  value="mock"
-                  checked={mode === 'mock'}
-                  onChange={(e) => setMode(e.target.value as Mode)}
-                  className="mr-2"
-                />
-                Mock Mode (UI Testing)
-              </label>
-              <label className="flex items-center text-gray-900 font-medium">
-                <input
-                  type="radio"
-                  name="mode"
-                  value="live"
-                  checked={mode === 'live'}
-                  onChange={(e) => setMode(e.target.value as Mode)}
-                  className="mr-2"
-                />
-                Live Mode (Real Integration)
-              </label>
-            </div>
-
-            {/* Form Fields */}
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="sdk-key" className="block font-semibold text-gray-700 mb-2">
-                  Socure SDK Key (Public)
-                </label>
-                <input
-                  type="text"
-                  id="sdk-key"
-                  value={sdkKey}
-                  onChange={(e) => setSdkKey(e.target.value)}
-                  placeholder="sdk_sandbox_xxxxx"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <div className="text-sm text-gray-600 mt-1">
-                  Your Socure public SDK key (starts with sdk_)
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="docv-token" className="block font-semibold text-gray-700 mb-2">
-                  DocV Transaction Token
-                </label>
-                <input
-                  type="text"
-                  id="docv-token"
-                  value={docvToken}
-                  onChange={(e) => setDocvToken(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <div className="text-sm text-gray-600 mt-1">
-                  The docvTransactionToken from your backend API
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="api-url" className="block font-semibold text-gray-700 mb-2">
-                  Backend API URL
-                </label>
-                <input
-                  type="text"
-                  id="api-url"
-                  value={apiUrl}
-                  onChange={(e) => setApiUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <div className="text-sm text-gray-600 mt-1">
-                  Your backend API endpoint (only used in Live Mode)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mb-8">
-            {!isVerifying ? (
-              <button
-                onClick={startVerification}
-                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
-              >
-                Start Verification
-              </button>
-            ) : (
-              <button
-                onClick={stopVerification}
-                className="bg-red-600 text-white px-6 py-3 rounded-md font-medium hover:bg-red-700 transition-colors"
-              >
-                Stop Verification
-              </button>
-            )}
-          </div>
-
-          {/* Verification Container */}
-          <div
-            id="verification-container"
-            className={`min-h-[600px] border-2 border-dashed rounded-lg flex items-center justify-center text-gray-400 text-lg ${
-              isVerifying ? 'border-transparent' : 'border-gray-300'
-            }`}
-          >
-            {!isVerifying && 'Verification UI will appear here'}
-          </div>
-
-          {/* Event Log */}
-          <div className="mt-8 bg-gray-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Event Log</h3>
-            <div className="max-h-80 overflow-y-auto space-y-2">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className={`px-3 py-2 rounded text-sm font-mono border-l-4 ${
-                    event.type === 'error'
-                      ? 'bg-red-50 border-red-500 text-red-700'
-                      : event.type === 'success'
-                      ? 'bg-green-50 border-green-500 text-green-700'
-                      : 'bg-white border-blue-500 text-gray-700'
-                  }`}
-                >
-                  [{event.timestamp}] {event.message}
-                </div>
-              ))}
-              {events.length === 0 && (
-                <div className="text-gray-400 text-sm">No events yet</div>
-              )}
-            </div>
-          </div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Identity Verification</h1>
+          <Link href="/testing">
+            <Button variant="outline">Go to Testing Page</Button>
+          </Link>
         </div>
+
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>Customer Information</CardTitle>
+            <CardDescription>
+              Please fill in your information to start the verification process.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="John"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="middleName">Middle Name</Label>
+                  <Input
+                    id="middleName"
+                    name="middleName"
+                    value={formData.middleName}
+                    onChange={handleInputChange}
+                    placeholder="Michael"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Address</h3>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address.line_1">Address Line 1 *</Label>
+                  <Input
+                    id="address.line_1"
+                    name="address.line_1"
+                    value={formData.address.line_1}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="200 Key Square St"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address.line_2">Address Line 2</Label>
+                  <Input
+                    id="address.line_2"
+                    name="address.line_2"
+                    value={formData.address.line_2}
+                    onChange={handleInputChange}
+                    placeholder="Apt 4B"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address.locality">City *</Label>
+                    <Input
+                      id="address.locality"
+                      name="address.locality"
+                      value={formData.address.locality}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="New York City"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address.major_admin_division">
+                      State *
+                    </Label>
+                    <Input
+                      id="address.major_admin_division"
+                      name="address.major_admin_division"
+                      value={formData.address.major_admin_division}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="NY"
+                      maxLength={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address.postal_code">Postal Code *</Label>
+                    <Input
+                      id="address.postal_code"
+                      name="address.postal_code"
+                      value={formData.address.postal_code}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="12345"
+                      maxLength={5}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address.minor_admin_division">
+                    County/District
+                  </Label>
+                  <Input
+                    id="address.minor_admin_division"
+                    name="address.minor_admin_division"
+                    value={formData.address.minor_admin_division}
+                    onChange={handleInputChange}
+                    placeholder="Manhattan"
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" className="w-full" disabled={verificationMutation.isPending}>
+                {verificationMutation.isPending ? "Starting Verification..." : "Start Verification"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </div>
-    </>
   );
 }
