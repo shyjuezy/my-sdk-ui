@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Setup
+
+1. Copy `.env.example` to `.env.local` and configure your environment variables:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Update the API base URL in `.env.local`:
+   ```
+   NEXT_PUBLIC_API_BASE_URL=https://mpbahqqt37.execute-api.us-east-1.amazonaws.com/latest
+   ```
+
 ## Commands
 
 **Development:**
@@ -63,3 +75,5 @@ const provider = await vecuIDVRef.current.providerLoader.load('socure');
 - Event logging provides real-time feedback for debugging verification flows
 - The verification UI is embedded directly in the page container
 - Uses Tailwind CSS 4.1.11 (alpha version) with inline theme configuration
+- API endpoints are configurable via environment variables (see `.env.example`)
+- The main form at `/` uses server actions to bypass CORS issues when calling external APIs

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import Script from "next/script";
 import { startVerification } from "@/app/actions/verify";
 import {
   formatPhoneNumber,
@@ -23,6 +24,7 @@ import {
 import { ErrorIcon } from "@/components/ui/error-icon";
 import { Toast, useToast } from "@/components/ui/toast";
 import { useId } from "react";
+import { config } from "@/lib/config";
 
 interface CustomerInfo {
   firstName: string;
@@ -47,11 +49,83 @@ interface ValidationErrors {
   phone?: string;
 }
 
+// SDK Types
+interface VerificationSession {
+  id: string;
+  provider: string;
+  providerSessionId: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface VerificationEvent {
+  type: string;
+  data: {
+    [key: string]: unknown;
+    error?: string;
+    message?: string;
+  };
+}
+
+interface Provider {
+  initializeVerification: (options: {
+    sessionId: string;
+    token: string;
+    container: HTMLElement;
+    mode: 'embedded' | 'popup';
+    config: {
+      publicKey: string;
+      qrCode?: boolean;
+    };
+  }) => Promise<unknown>;
+  destroy: () => void;
+}
+
+interface VecuIDVConstructor {
+  new (config: {
+    apiKey: string;
+    apiUrl: string;
+    environment: string;
+    providers: {
+      socure: {
+        publicKey: string;
+        environment: string;
+        qrCode: boolean;
+      };
+    };
+  }): {
+    initialized: boolean;
+    activeSessions: Map<string, VerificationSession>;
+    providerLoader: {
+      load: (provider: string) => Promise<Provider>;
+    };
+    providerRegistry?: Map<string, Provider>;
+    destroy: () => void;
+    on: (event: string, handler: (event: VerificationEvent) => void) => void;
+  };
+}
+
 export default function Home() {
   // Generate unique IDs for accessibility
   const emailErrorId = useId();
   const phoneErrorId = useId();
   const { toasts, showToast, removeToast } = useToast();
+  
+  // SDK state
+  const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showForm, setShowForm] = useState(true);
+  const vecuIDVRef = useRef<{ 
+    initialized: boolean;
+    activeSessions: Map<string, VerificationSession>;
+    providerLoader: {
+      load: (provider: string) => Promise<Provider>;
+    };
+    providerRegistry?: Map<string, Provider>;
+    destroy: () => void;
+    on: (event: string, handler: (event: VerificationEvent) => void) => void;
+  } | null>(null);
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
     {}
@@ -76,7 +150,7 @@ export default function Home() {
 
   const verificationMutation = useMutation({
     mutationFn: startVerification,
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       if (process.env.NODE_ENV === "development") {
         console.log("=== Verification Response ===");
         console.log("Full response object:", response);
@@ -86,10 +160,15 @@ export default function Home() {
         console.log("===========================");
       }
 
-      if (response.success) {
+      if (response.success && response.data?.providerDocumentId) {
         showToast("Verification started successfully!", "success");
-        // Optionally clear the form
-        // setFormData({ ...initialFormData });
+        console.log("Response ##########", response);
+        
+        // Extract providerDocumentId and start SDK verification
+        const providerDocumentId = response.data.providerDocumentId;
+        await initializeSDKVerification(providerDocumentId);
+      } else if (response.success) {
+        showToast("Verification started but no providerDocumentId received", "error");
       } else {
         if (response.statusCode === 401) {
           showToast(`Authentication failed: ${response.error}`, "error");
@@ -182,6 +261,126 @@ export default function Home() {
     }
   };
 
+  const initializeSDKVerification = async (docvToken: string) => {
+    try {
+      setIsVerifying(true);
+      setShowForm(false);
+      
+      // Wait for SDK to be loaded
+      const windowWithSDK = window as unknown as Window & { VecuIDV?: { VecuIDV: VecuIDVConstructor } };
+      if (!sdkLoaded || !windowWithSDK.VecuIDV) {
+        showToast('SDK not loaded yet. Please wait...', 'error');
+        setShowForm(true);
+        setIsVerifying(false);
+        return;
+      }
+      
+      const VecuIDV = windowWithSDK.VecuIDV.VecuIDV;
+      
+      // Initialize SDK
+      vecuIDVRef.current = new VecuIDV({
+        apiKey: 'your-real-api-key',
+        apiUrl: 'http://localhost:3000/api',
+        environment: 'development',
+        providers: {
+          socure: {
+            publicKey: config.sdkKey,
+            environment: 'sandbox',
+            qrCode: true
+          }
+        }
+      });
+      
+      // Subscribe to events
+      vecuIDVRef.current.on('verification:completed', (event: VerificationEvent) => {
+        showToast('Verification completed successfully!', 'success');
+        console.log('Verification result:', event.data);
+        // Optionally reset the form and show it again
+        setShowForm(true);
+        setIsVerifying(false);
+      });
+      
+      vecuIDVRef.current.on('verification:failed', (event: VerificationEvent) => {
+        showToast(`Verification failed: ${event.data.error}`, 'error');
+        setShowForm(true);
+        setIsVerifying(false);
+      });
+      
+      vecuIDVRef.current.on('error', (event: VerificationEvent) => {
+        showToast(`Error: ${event.data.message}`, 'error');
+      });
+      
+      // Force the SDK to be initialized without calling the backend
+      vecuIDVRef.current.initialized = true;
+      
+      // Create a minimal session
+      const testSessionData: VerificationSession = {
+        id: 'session-' + Date.now(),
+        provider: 'socure',
+        providerSessionId: docvToken,
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Store the session in the SDK's active sessions
+      vecuIDVRef.current.activeSessions.set(testSessionData.id, testSessionData);
+      
+      // Load the Socure provider
+      const provider = await vecuIDVRef.current.providerLoader.load('socure');
+      
+      // Initialize the verification UI
+      const container = document.querySelector('#verification-container');
+      if (!container) {
+        throw new Error('Verification container not found');
+      }
+      
+      await provider.initializeVerification({
+        sessionId: testSessionData.id,
+        token: docvToken,
+        container: container as HTMLElement,
+        mode: 'embedded',
+        config: {
+          publicKey: config.sdkKey,
+          qrCode: true
+        }
+      });
+      
+    } catch (error) {
+      showToast(`Error initializing verification: ${(error as Error).message}`, 'error');
+      console.error('SDK initialization error:', error);
+      setShowForm(true);
+      setIsVerifying(false);
+    }
+  };
+
+  const stopVerification = async () => {
+    try {
+      // Clean up the provider if it exists
+      if (vecuIDVRef.current) {
+        const provider = vecuIDVRef.current.providerRegistry?.get('socure');
+        if (provider) {
+          provider.destroy();
+        }
+        
+        // Clear active sessions
+        vecuIDVRef.current.activeSessions.clear();
+        vecuIDVRef.current.destroy();
+        vecuIDVRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error cleaning up:', error);
+    }
+    
+    // Reset UI
+    setIsVerifying(false);
+    setShowForm(true);
+    const container = document.getElementById('verification-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -209,6 +408,19 @@ export default function Home() {
 
   return (
     <>
+      {/* SDK Script */}
+      <Script 
+        src="/lib/vecu-idv-web-sdk/dist/index.umd.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          setSdkLoaded(true);
+          console.log('VECU IDV SDK loaded successfully');
+        }}
+        onError={() => {
+          showToast('Failed to load VECU IDV SDK', 'error');
+        }}
+      />
+      
       {/* Toast notifications */}
       {toasts.map((toast) => (
         <Toast
@@ -250,7 +462,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <Card className="max-w-2xl mx-auto backdrop-blur-sm bg-white/70 border-white/20 shadow-2xl shadow-indigo-200/20 hover:shadow-indigo-300/30 transition-all duration-500 hover:scale-[1.02] relative overflow-hidden">
+          {showForm ? (
+            <Card className="max-w-2xl mx-auto backdrop-blur-sm bg-white/70 border-white/20 shadow-2xl shadow-indigo-200/20 hover:shadow-indigo-300/30 transition-all duration-500 hover:scale-[1.02] relative overflow-hidden">
             {/* Card gradient border effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 blur-xl"></div>
             <div className="absolute inset-[1px] bg-white/90 backdrop-blur-sm rounded-lg"></div>
@@ -557,29 +770,53 @@ export default function Home() {
                       />
                     </div>
                   </fieldset>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      type="submit"
+                      className="w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 transform hover:scale-[1.02] group cursor-pointer hover:cursor-pointer disabled:cursor-not-allowed"
+                      disabled={verificationMutation.isPending}
+                    >
+                      <span className="relative z-10">
+                        {verificationMutation.isPending ? (
+                          <span className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Starting Verification...
+                          </span>
+                        ) : (
+                          "Start Verification"
+                        )}
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                    </Button>
+                  </CardFooter>
+                </form>
+              </div>
+            </Card>
+          ) : (
+            <div className="max-w-4xl mx-auto">
+              <Card className="backdrop-blur-sm bg-white/70 border-white/20 shadow-2xl shadow-indigo-200/20">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Identity Verification</CardTitle>
+                  {isVerifying && (
+                    <Button
+                      onClick={stopVerification}
+                      variant="outline"
+                      className="border-red-200 hover:border-red-400 hover:bg-red-50"
+                    >
+                      Cancel Verification
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div
+                    id="verification-container"
+                    className="min-h-[600px] border-2 border-dashed rounded-lg flex items-center justify-center text-gray-400 text-lg border-gray-300"
+                  />
                 </CardContent>
-                <CardFooter>
-                  <Button
-                    type="submit"
-                    className="w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 transform hover:scale-[1.02] group cursor-pointer hover:cursor-pointer disabled:cursor-not-allowed"
-                    disabled={verificationMutation.isPending}
-                  >
-                    <span className="relative z-10">
-                      {verificationMutation.isPending ? (
-                        <span className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Starting Verification...
-                        </span>
-                      ) : (
-                        "Start Verification"
-                      )}
-                    </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
-                  </Button>
-                </CardFooter>
-              </form>
+              </Card>
             </div>
-          </Card>
+          )}
         </div>
       </div>
     </>
