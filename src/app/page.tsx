@@ -3,8 +3,20 @@
 import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingInput } from "@/components/ui/floating-input";
+import { FloatingSelect } from "@/components/ui/floating-select";
+import { US_STATES } from "@/lib/us-states";
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Building2, 
+  Globe, 
+  CheckCircle2,
+  ArrowRight,
+  Shield
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,7 +33,6 @@ import {
   validatePhoneNumber,
   validateEmail,
 } from "@/lib/validation";
-import { ErrorIcon } from "@/components/ui/error-icon";
 import { Toast, useToast } from "@/components/ui/toast";
 import { useId } from "react";
 import { config } from "@/lib/config";
@@ -30,16 +41,16 @@ interface CustomerInfo {
   firstName: string;
   lastName: string;
   middleName?: string;
-  email?: string;
-  phone?: string;
+  email: string;
+  phone: string;
   address: {
-    line_1: string;
-    line_2?: string;
+    line1: string;
+    line2?: string;
     locality: string;
-    minor_admin_division?: string;
-    major_admin_division: string;
+    minorAdminDivision?: string;
+    majorAdminDivision: string;
     country: string;
-    postal_code: string;
+    postalCode: string;
     type: string;
   };
 }
@@ -137,13 +148,13 @@ export default function Home() {
     email: "",
     phone: "",
     address: {
-      line_1: "",
-      line_2: "",
+      line1: "",
+      line2: "",
       locality: "",
-      minor_admin_division: "",
-      major_admin_division: "",
+      minorAdminDivision: "",
+      majorAdminDivision: "",
       country: "US",
-      postal_code: "",
+      postalCode: "",
       type: "HOME",
     },
   });
@@ -202,11 +213,28 @@ export default function Home() {
 
     if (name.startsWith("address.")) {
       const addressField = name.split(".")[1];
+      
+      // Capitalize first letter of each word for city field
+      let processedValue = value;
+      if (addressField === "locality") {
+        processedValue = value
+          .split(' ')
+          .map(word => {
+            if (word.length === 0) return word;
+            // Handle special cases like "st." or "mt."
+            if (word.toLowerCase().endsWith('.')) {
+              return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            }
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          })
+          .join(' ');
+      }
+      
       setFormData((prev) => ({
         ...prev,
         address: {
           ...prev.address,
-          [addressField]: value,
+          [addressField]: processedValue,
         },
       }));
     } else {
@@ -218,8 +246,8 @@ export default function Home() {
           [name]: formattedPhone,
         }));
 
-        // Validate phone number only if there's a value
-        if (formattedPhone && !validatePhoneNumber(formattedPhone)) {
+        // Always validate phone number
+        if (!formattedPhone || !validatePhoneNumber(formattedPhone)) {
           setValidationErrors((prev) => ({
             ...prev,
             phone: "Please enter a valid 10-digit US phone number",
@@ -238,8 +266,8 @@ export default function Home() {
           [name]: value,
         }));
 
-        // Validate email only if there's a value
-        if (value && !validateEmail(value)) {
+        // Always validate email
+        if (!value || !validateEmail(value)) {
           setValidationErrors((prev) => ({
             ...prev,
             email: "Please enter a valid email address",
@@ -384,14 +412,18 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate email and phone only if they have values
+    // Validate required email and phone fields
     const errors: ValidationErrors = {};
 
-    if (formData.email && !validateEmail(formData.email)) {
+    if (!formData.email) {
+      errors.email = "Email is required";
+    } else if (!validateEmail(formData.email)) {
       errors.email = "Please enter a valid email address";
     }
 
-    if (formData.phone && !validatePhoneNumber(formData.phone)) {
+    if (!formData.phone) {
+      errors.phone = "Phone is required";
+    } else if (!validatePhoneNumber(formData.phone)) {
       errors.phone = "Please enter a valid 10-digit US phone number";
     }
 
@@ -431,51 +463,40 @@ export default function Home() {
         />
       ))}
 
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 animate-gradient-xy"></div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-pulse"></div>
-
-        {/* Floating gradient orbs */}
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-gradient-to-r from-blue-400/20 to-purple-500/20 rounded-full blur-3xl animate-blob"></div>
-        <div className="absolute top-1/3 right-1/4 w-72 h-72 bg-gradient-to-r from-purple-400/20 to-pink-500/20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-gradient-to-r from-indigo-400/20 to-cyan-500/20 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
+      <div className="min-h-screen relative overflow-hidden bg-gray-50">
+        {/* Simple gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50"></div>
 
         <div className="relative z-10 container mx-auto px-4 py-8">
           <div className="flex justify-between items-center mb-8">
-            <div className="relative">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient-x">
-                Identity Verification
-              </h1>
-              <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-full transform scale-x-0 animate-scale-x"></div>
-            </div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Identity Verification
+            </h1>
             <Link href="/testing">
               <Button
                 variant="outline"
-                className="relative overflow-hidden border-2 border-indigo-200 hover:border-indigo-400 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-200/50 group"
+                className="border-gray-300 hover:border-indigo-500 hover:text-indigo-600 transition-colors duration-200"
               >
-                <span className="relative z-10 group-hover:text-white transition-colors duration-300">
-                  Go to Testing Page
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
+                Go to Testing Page
               </Button>
             </Link>
           </div>
 
           {showForm ? (
-            <Card className="max-w-2xl mx-auto backdrop-blur-sm bg-white/70 border-white/20 shadow-2xl shadow-indigo-200/20 hover:shadow-indigo-300/30 transition-all duration-500 hover:scale-[1.02] relative overflow-hidden">
-            {/* Card gradient border effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 blur-xl"></div>
-            <div className="absolute inset-[1px] bg-white/90 backdrop-blur-sm rounded-lg"></div>
+            <Card className="max-w-2xl mx-auto bg-white/90 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
+            {/* Subtle gradient accent */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
 
-            <div className="relative z-10">
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  Customer Information
+            <div className="relative">
+              <CardHeader className="text-center space-y-3 pb-2">
+                <div className="mx-auto w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-2xl font-semibold text-gray-900">
+                  Identity Verification
                 </CardTitle>
                 <CardDescription className="text-gray-600">
-                  Please fill in your information to start the verification
-                  process.
+                  Please provide your information to begin the verification process
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleSubmit} noValidate>
@@ -483,62 +504,41 @@ export default function Home() {
                   <fieldset>
                     <legend className="sr-only">Personal Information</legend>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="firstName"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          First Name *
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="firstName"
                           name="firstName"
                           value={formData.firstName}
                           onChange={handleInputChange}
                           required
-                          placeholder="John"
+                          label="First Name"
+                          icon={User}
                           autoComplete="given-name"
                           aria-required="true"
-                          aria-label="First Name"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                         />
                       </div>
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="middleName"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          Middle Name
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="middleName"
                           name="middleName"
                           value={formData.middleName}
                           onChange={handleInputChange}
-                          placeholder="Michael"
+                          label="Middle Name"
+                          icon={User}
                           autoComplete="additional-name"
-                          aria-label="Middle Name (optional)"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                         />
                       </div>
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="lastName"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          Last Name *
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="lastName"
                           name="lastName"
                           value={formData.lastName}
                           onChange={handleInputChange}
                           required
-                          placeholder="Doe"
+                          label="Last Name"
+                          icon={User}
                           autoComplete="family-name"
                           aria-required="true"
-                          aria-label="Last Name"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                         />
                       </div>
                     </div>
@@ -547,92 +547,49 @@ export default function Home() {
                   <fieldset>
                     <legend className="sr-only">Contact Information</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="email"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          Email
-                          <span className="text-muted-foreground ml-1">
-                            (optional)
-                          </span>
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="email"
                           name="email"
                           type="email"
                           value={formData.email}
                           onChange={handleInputChange}
-                          placeholder="john.doe@example.com"
+                          required
+                          label="Email"
+                          icon={Mail}
                           autoComplete="email"
-                          aria-label="Email (optional)"
+                          aria-required="true"
                           aria-invalid={!!validationErrors.email}
                           aria-describedby={
                             validationErrors.email ? emailErrorId : undefined
                           }
-                          className={`transition-all duration-200 hover:border-gray-300 ${
-                            validationErrors.email
-                              ? "border-red-300 focus:border-red-400 focus:ring-red-400/20"
-                              : "border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20"
-                          }`}
+                          error={validationErrors.email}
                         />
-                        {validationErrors.email && (
-                          <p
-                            id={emailErrorId}
-                            role="alert"
-                            aria-live="polite"
-                            className="text-sm text-red-500 flex items-center gap-1 animate-fade-in"
-                          >
-                            <ErrorIcon />
-                            {validationErrors.email}
-                          </p>
-                        )}
                       </div>
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="phone"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          Phone
-                          <span className="text-muted-foreground ml-1">
-                            (optional)
-                          </span>
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="phone"
                           name="phone"
                           type="tel"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          placeholder="(555) 123-4567"
+                          required
+                          label="Phone"
+                          icon={Phone}
                           autoComplete="tel"
                           inputMode="tel"
-                          aria-label="Phone (optional)"
+                          aria-required="true"
                           aria-invalid={!!validationErrors.phone}
                           aria-describedby={
                             validationErrors.phone ? phoneErrorId : undefined
                           }
-                          className={`transition-all duration-200 hover:border-gray-300 ${
-                            validationErrors.phone
-                              ? "border-red-300 focus:border-red-400 focus:ring-red-400/20"
-                              : "border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20"
-                          }`}
+                          error={validationErrors.phone}
                         />
-                        {validationErrors.phone && (
-                          <p
-                            id={phoneErrorId}
-                            role="alert"
-                            aria-live="polite"
-                            className="text-sm text-red-500 flex items-center gap-1 animate-fade-in"
-                          >
-                            <ErrorIcon />
-                            {validationErrors.phone}
-                          </p>
-                        )}
                         {formData.phone &&
                           validatePhoneNumber(formData.phone) && (
-                            <p className="text-sm text-green-600 animate-fade-in">
-                              ✓ Valid US phone number
+                            <p className="text-sm text-green-600 flex items-center gap-1 animate-fade-in mt-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Valid US phone number
                             </p>
                           )}
                       </div>
@@ -640,154 +597,118 @@ export default function Home() {
                   </fieldset>
 
                   <fieldset className="space-y-4">
-                    <legend className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                      Address
+                    <legend className="text-lg font-semibold text-gray-900">
+                      Address Information
                     </legend>
 
-                    <div className="space-y-2 group">
-                      <Label
-                        htmlFor="address.line_1"
-                        className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                      >
-                        Address Line 1 *
-                      </Label>
-                      <Input
-                        id="address.line_1"
-                        name="address.line_1"
-                        value={formData.address.line_1}
+                    <div>
+                      <FloatingInput
+                        id="address.line1"
+                        name="address.line1"
+                        value={formData.address.line1}
                         onChange={handleInputChange}
                         required
-                        placeholder="200 Key Square St"
+                        label="Address Line 1"
+                        icon={Building2}
                         autoComplete="address-line1"
                         aria-required="true"
-                        aria-label="Address Line 1"
-                        className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                       />
                     </div>
 
-                    <div className="space-y-2 group">
-                      <Label
-                        htmlFor="address.line_2"
-                        className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                      >
-                        Address Line 2
-                      </Label>
-                      <Input
-                        id="address.line_2"
-                        name="address.line_2"
-                        value={formData.address.line_2}
+                    <div>
+                      <FloatingInput
+                        id="address.line2"
+                        name="address.line2"
+                        value={formData.address.line2}
                         onChange={handleInputChange}
-                        placeholder="Apt 4B"
+                        label="Address Line 2 (Optional)"
+                        icon={Building2}
                         autoComplete="address-line2"
-                        aria-label="Address Line 2 (optional)"
-                        className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="address.locality"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          City *
-                        </Label>
-                        <Input
+                      <div>
+                        <FloatingInput
                           id="address.locality"
                           name="address.locality"
                           value={formData.address.locality}
                           onChange={handleInputChange}
                           required
-                          placeholder="New York City"
+                          label="City"
+                          icon={MapPin}
                           autoComplete="address-level2"
                           aria-required="true"
-                          aria-label="City"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                         />
                       </div>
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="address.major_admin_division"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          State *
-                        </Label>
-                        <Input
-                          id="address.major_admin_division"
-                          name="address.major_admin_division"
-                          value={formData.address.major_admin_division}
-                          onChange={handleInputChange}
+                      <div>
+                        <FloatingSelect
+                          id="address.majorAdminDivision"
+                          name="address.majorAdminDivision"
+                          value={formData.address.majorAdminDivision}
+                          onValueChange={(value) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              address: {
+                                ...prev.address,
+                                majorAdminDivision: value,
+                              },
+                            }));
+                          }}
+                          options={US_STATES}
                           required
-                          placeholder="NY"
-                          maxLength={2}
-                          autoComplete="address-level1"
-                          aria-required="true"
-                          aria-label="State"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
+                          label="State"
+                          icon={Globe}
                         />
                       </div>
-                      <div className="space-y-2 group">
-                        <Label
-                          htmlFor="address.postal_code"
-                          className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                        >
-                          Postal Code *
-                        </Label>
-                        <Input
-                          id="address.postal_code"
-                          name="address.postal_code"
-                          value={formData.address.postal_code}
+                      <div>
+                        <FloatingInput
+                          id="address.postalCode"
+                          name="address.postalCode"
+                          value={formData.address.postalCode}
                           onChange={handleInputChange}
                           required
-                          placeholder="12345"
+                          label="Postal Code"
+                          icon={MapPin}
                           maxLength={5}
                           autoComplete="postal-code"
                           inputMode="numeric"
                           pattern="[0-9]{5}"
                           aria-required="true"
-                          aria-label="Postal Code"
-                          className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2 group">
-                      <Label
-                        htmlFor="address.minor_admin_division"
-                        className="text-gray-700 group-focus-within:text-indigo-600 transition-colors duration-200"
-                      >
-                        County/District
-                      </Label>
-                      <Input
-                        id="address.minor_admin_division"
-                        name="address.minor_admin_division"
-                        value={formData.address.minor_admin_division}
+                    <div>
+                      <FloatingInput
+                        id="address.minorAdminDivision"
+                        name="address.minorAdminDivision"
+                        value={formData.address.minorAdminDivision}
                         onChange={handleInputChange}
-                        placeholder="Manhattan"
+                        label="County/District (Optional)"
+                        icon={MapPin}
                         autoComplete="address-level3"
-                        aria-label="County/District (optional)"
-                        className="border-gray-200 focus:border-indigo-400 focus:ring-indigo-400/20 transition-all duration-200 hover:border-gray-300"
                       />
                     </div>
                   </fieldset>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="pt-6">
                     <Button
                       type="submit"
-                      className="w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 transform hover:scale-[1.02] group cursor-pointer hover:cursor-pointer disabled:cursor-not-allowed"
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200 cursor-pointer"
                       disabled={verificationMutation.isPending}
                     >
-                      <span className="relative z-10">
-                        {verificationMutation.isPending ? (
-                          <span className="flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            Starting Verification...
-                          </span>
-                        ) : (
-                          "Start Verification"
-                        )}
-                      </span>
-                      <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                      {verificationMutation.isPending ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Starting Verification...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          Start Verification
+                          <ArrowRight className="w-4 h-4" />
+                        </span>
+                      )}
                     </Button>
                   </CardFooter>
                 </form>

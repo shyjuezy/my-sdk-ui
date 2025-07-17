@@ -11,13 +11,13 @@ export interface VerificationRequest {
     email?: string;
     phone?: string;
     address: {
-      line_1: string;
-      line_2?: string;
+      line1: string;
+      line2?: string;
       locality: string;
-      minor_admin_division?: string;
-      major_admin_division: string;
+      minorAdminDivision?: string;
+      majorAdminDivision: string;
       country: string;
-      postal_code: string;
+      postalCode: string;
       type: string;
     };
   };
@@ -59,11 +59,16 @@ export async function startVerification(
         ...(customerInfo.email && { email: customerInfo.email }),
         ...(customerInfo.phone && { phone: getPhoneNumberForAPI(customerInfo.phone) }),
         address: {
-          ...customerInfo.address,
-          ...(customerInfo.address.line_2 === '' && { line_2: undefined }),
-          ...(customerInfo.address.minor_admin_division === '' && {
-            minor_admin_division: undefined
-          })
+          line_1: customerInfo.address.line1,
+          ...(customerInfo.address.line2 && { line_2: customerInfo.address.line2 }),
+          locality: customerInfo.address.locality,
+          ...(customerInfo.address.minorAdminDivision && { 
+            minor_admin_division: customerInfo.address.minorAdminDivision 
+          }),
+          major_admin_division: customerInfo.address.majorAdminDivision,
+          country: customerInfo.address.country,
+          postal_code: customerInfo.address.postalCode,
+          type: customerInfo.address.type
         }
       }
     };
