@@ -163,8 +163,19 @@ export default function Home() {
           </header>
 
           {/* Main Content */}
-          <main>
-            {showForm ? (
+          <main className="relative min-h-[700px]">
+            <div 
+              style={{ 
+                opacity: showForm ? 1 : 0,
+                transform: showForm ? 'translateX(0)' : 'translateX(-20px)',
+                transition: 'all 0.3s ease-out',
+                WebkitTransition: 'all 0.3s ease-out',
+                pointerEvents: showForm ? 'auto' : 'none',
+                position: showForm ? 'relative' : 'absolute',
+                width: '100%',
+                willChange: 'transform, opacity'
+              }}
+            >
               <CustomerForm
                 formData={formData}
                 validationErrors={validationErrors}
@@ -173,12 +184,25 @@ export default function Home() {
                 onSubmit={handleSubmit}
                 isSubmitting={verificationMutation.isPending}
               />
-            ) : (
+            </div>
+            <div 
+              style={{ 
+                opacity: showForm ? 0 : 1,
+                transform: showForm ? 'translateX(20px)' : 'translateX(0)',
+                transition: 'all 0.3s ease-out',
+                WebkitTransition: 'all 0.3s ease-out',
+                pointerEvents: showForm ? 'none' : 'auto',
+                position: showForm ? 'absolute' : 'relative',
+                width: '100%',
+                top: 0,
+                willChange: 'transform, opacity'
+              }}
+            >
               <VerificationContainer
                 isVerifying={isVerifying}
                 onStopVerification={stopVerification}
               />
-            )}
+            </div>
           </main>
         </div>
       </div>
@@ -247,7 +271,12 @@ function CustomerForm({
           <CardFooter className="pt-6">
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200 cursor-pointer transform-gpu"
+              style={{
+                WebkitTransform: 'translateZ(0)',
+                WebkitBackfaceVisibility: 'hidden',
+                perspective: 1000
+              }}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
