@@ -44,6 +44,12 @@ export interface VerificationEvent {
   };
 }
 
+export interface VecuEventData {
+  error?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
 export interface Provider {
   initializeVerification: (options: {
     sessionId: string;
@@ -67,6 +73,15 @@ export interface VecuIDV {
   providerRegistry?: Map<string, Provider>;
   destroy: () => void;
   on: (event: string, handler: (event: VerificationEvent) => void) => void;
+}
+
+// Extended interface for testing workarounds
+export interface VecuIDVTestInstance extends VecuIDV {
+  initialized: boolean;
+  activeSessions: Map<string, VerificationSession>;
+  providerLoader: {
+    load: (provider: string) => Promise<Provider>;
+  };
 }
 
 export interface VecuIDVConstructor {

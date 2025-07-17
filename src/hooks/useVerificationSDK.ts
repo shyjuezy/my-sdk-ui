@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { config } from "@/lib/config";
 import { VecuIDV } from "vecu-idv-web-sdk";
 import type { IVecuEvent } from "vecu-idv-web-sdk";
+import type { VecuIDVTestInstance, VecuEventData } from "@/types/verification";
 
 // Type alias for the VecuIDV instance
 type VecuIDVInstance = InstanceType<typeof VecuIDV>;
@@ -66,11 +67,13 @@ export function useVerificationSDK() {
             setIsVerifying(false);
           },
           "verification:failed": (event: IVecuEvent) => {
-            console.error("Verification failed:", (event.data as any).error);
+            const eventData = event.data as VecuEventData;
+            console.error("Verification failed:", eventData.error);
             setIsVerifying(false);
           },
           error: (event: IVecuEvent) => {
-            console.error("SDK Error:", (event.data as any).message);
+            const eventData = event.data as VecuEventData;
+            console.error("SDK Error:", eventData.message);
             setIsVerifying(false);
           },
         };
@@ -92,7 +95,8 @@ export function useVerificationSDK() {
 
         // Force the SDK to be initialized without calling the backend
         // Note: This is a workaround for testing only
-        (sdkInstance as any).initialized = true;
+        const testInstance = sdkInstance as unknown as VecuIDVTestInstance;
+        testInstance.initialized = true;
 
         // Create a minimal session
         const testSessionData = {
@@ -100,21 +104,21 @@ export function useVerificationSDK() {
           provider: "socure",
           providerSessionId: docvToken,
           status: "pending" as const,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           userId: "test-user",
           metadata: {},
         };
 
         // Store the session in the SDK's active sessions
         // Note: This is accessing private properties for testing only
-        (sdkInstance as any).activeSessions.set(
+        testInstance.activeSessions.set(
           testSessionData.id,
           testSessionData
         );
 
         // Load the Socure provider
-        const provider = await (sdkInstance as any).providerLoader.load(
+        const provider = await testInstance.providerLoader.load(
           "socure"
         );
 
