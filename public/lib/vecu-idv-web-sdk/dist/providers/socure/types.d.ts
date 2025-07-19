@@ -1,11 +1,19 @@
 export interface ISocureDocVConfig {
-    onProgress?: (event: ISocureProgressEvent) => void;
-    onSuccess?: (response: ISocureResult) => void;
-    onError?: (error: ISocureError) => void;
+    onProgress?: (event: ISocureCallbackResponse) => void;
+    onSuccess?: (response: ISocureCallbackResponse) => void;
+    onError?: (error: ISocureCallbackResponse) => void;
     qrCodeNeeded?: boolean;
 }
 export interface ISocureDocVSDK {
     launch(sdkKey: string, docvTransactionToken: string, containerSelector: string | HTMLElement, config?: ISocureDocVConfig): ISocureSession | void;
+}
+export interface ISocureCallbackResponse {
+    docvTransactionToken: string;
+    status: 'WAITING_FOR_USER_TO_REDIRECT' | 'WAITING_FOR_UPLOAD' | 'DOCUMENTS_UPLOADED' | 'CONSENT_DECLINED' | 'DOCUMENTS_UPLOAD_FAILED';
+    key: string;
+    customerUserId?: string;
+    mobileNumber?: string;
+    deviceSessionToken?: string;
 }
 export interface ISocureProgressEvent {
     event: string;

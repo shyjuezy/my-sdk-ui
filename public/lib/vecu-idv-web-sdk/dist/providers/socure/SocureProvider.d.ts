@@ -7,6 +7,7 @@ export declare class SocureProvider extends BaseProvider {
     private sdkLoader;
     private socureDocVSDK;
     private activeSession;
+    private getCompletionMessage;
     constructor();
     loadSDK(): Promise<void>;
     initializeVerification(options: IProviderInitOptions): Promise<IProviderVerificationUI>;
@@ -14,8 +15,6 @@ export declare class SocureProvider extends BaseProvider {
     mapEvent(event: unknown): IProviderEvent | null;
     protected cleanupSDK(): void;
     private handleProgressEvent;
-    private calculateProgress;
-    private getProgressMessage;
     private destroySession;
 }
 //# sourceMappingURL=SocureProvider.d.ts.map

@@ -36,12 +36,16 @@ export default function Home() {
   const {
     setSdkLoaded,
     isVerifying,
+    verificationState,
+    completionData,
     initializeSDKVerification,
     stopVerification,
+    resetVerification,
+    triggerCompletion,
   } = useVerificationSDK();
 
-  // Show form when not verifying
-  const showForm = !isVerifying;
+  // Show form when not verifying and not completed
+  const showForm = !isVerifying && verificationState !== 'completed';
 
   const verificationMutation = useMutation({
     mutationFn: startVerification,
@@ -176,8 +180,47 @@ export default function Home() {
             ) : (
               <VerificationContainer
                 isVerifying={isVerifying}
+                verificationState={verificationState}
+                completionData={completionData}
                 onStopVerification={stopVerification}
+                onContinue={() => {
+                  showToast("Proceeding to next step...", "success");
+                  resetVerification();
+                }}
+                onStartNewVerification={() => {
+                  resetVerification();
+                  showToast("Ready for new verification", "info");
+                }}
               />
+            )}
+            
+            {/* Debug Button - Development Only */}
+            {process.env.NODE_ENV === 'development' && isVerifying && (
+              <div className="max-w-4xl mx-auto mt-4">
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    onClick={() => triggerCompletion('Verification complete! Check your SMS for further instructions.')}
+                    variant="outline"
+                    className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    🧪 Test SMS Completion
+                  </Button>
+                  <Button
+                    onClick={() => triggerCompletion('Verification complete! Please check your email for further instructions.')}
+                    variant="outline"
+                    className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+                  >
+                    🧪 Test Email Completion
+                  </Button>
+                  <Button
+                    onClick={() => triggerCompletion()}
+                    variant="outline"
+                    className="bg-green-50 border-green-300 text-green-800 hover:bg-green-100"
+                  >
+                    🧪 Test Generic Completion
+                  </Button>
+                </div>
+              </div>
             )}
           </main>
         </div>
