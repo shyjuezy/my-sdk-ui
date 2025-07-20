@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import Script from "next/script";
 import { startVerification } from "@/app/actions/verify";
 import { Toast, useToast } from "@/components/ui/toast";
 import { useCustomerForm } from "@/hooks/useCustomerForm";
@@ -34,14 +33,17 @@ export default function Home() {
   } = useCustomerForm();
 
   const {
-    setSdkLoaded,
     isVerifying,
+    verificationState,
+    completionData,
     initializeSDKVerification,
     stopVerification,
+    resetVerification,
+    triggerCompletion,
   } = useVerificationSDK();
 
-  // Show form when not verifying
-  const showForm = !isVerifying;
+  // Show form when not verifying and not completed
+  const showForm = !isVerifying && verificationState !== 'completed';
 
   const verificationMutation = useMutation({
     mutationFn: startVerification,
@@ -119,18 +121,6 @@ export default function Home() {
 
   return (
     <>
-      {/* SDK Script */}
-      <Script
-        src="/lib/vecu-idv-web-sdk/dist/index.umd.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          setSdkLoaded(true);
-          console.log("VECU IDV SDK loaded successfully");
-        }}
-        onError={() => {
-          showToast("Failed to load VECU IDV SDK", "error");
-        }}
-      />
 
       {/* Toast notifications */}
       {toasts.map((toast) => (
@@ -163,19 +153,8 @@ export default function Home() {
           </header>
 
           {/* Main Content */}
-          <main className="relative min-h-[700px]">
-            <div 
-              style={{ 
-                opacity: showForm ? 1 : 0,
-                transform: showForm ? 'translateX(0)' : 'translateX(-20px)',
-                transition: 'all 0.3s ease-out',
-                WebkitTransition: 'all 0.3s ease-out',
-                pointerEvents: showForm ? 'auto' : 'none',
-                position: showForm ? 'relative' : 'absolute',
-                width: '100%',
-                willChange: 'transform, opacity'
-              }}
-            >
+          <main>
+            {showForm ? (
               <CustomerForm
                 formData={formData}
                 validationErrors={validationErrors}
@@ -184,25 +163,51 @@ export default function Home() {
                 onSubmit={handleSubmit}
                 isSubmitting={verificationMutation.isPending}
               />
-            </div>
-            <div 
-              style={{ 
-                opacity: showForm ? 0 : 1,
-                transform: showForm ? 'translateX(20px)' : 'translateX(0)',
-                transition: 'all 0.3s ease-out',
-                WebkitTransition: 'all 0.3s ease-out',
-                pointerEvents: showForm ? 'none' : 'auto',
-                position: showForm ? 'absolute' : 'relative',
-                width: '100%',
-                top: 0,
-                willChange: 'transform, opacity'
-              }}
-            >
+            ) : (
               <VerificationContainer
                 isVerifying={isVerifying}
+                verificationState={verificationState}
+                completionData={completionData}
                 onStopVerification={stopVerification}
+                onContinue={() => {
+                  showToast("Proceeding to next step...", "success");
+                  resetVerification();
+                }}
+                onStartNewVerification={() => {
+                  resetVerification();
+                  showToast("Ready for new verification", "info");
+                }}
               />
-            </div>
+            )}
+            
+            {/* Debug Button - Development Only */}
+            {process.env.NODE_ENV === 'development' && isVerifying && (
+              <div className="max-w-4xl mx-auto mt-4">
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    onClick={() => triggerCompletion('Verification complete! Check your SMS for further instructions.')}
+                    variant="outline"
+                    className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    🧪 Test SMS Completion
+                  </Button>
+                  <Button
+                    onClick={() => triggerCompletion('Verification complete! Please check your email for further instructions.')}
+                    variant="outline"
+                    className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+                  >
+                    🧪 Test Email Completion
+                  </Button>
+                  <Button
+                    onClick={() => triggerCompletion()}
+                    variant="outline"
+                    className="bg-green-50 border-green-300 text-green-800 hover:bg-green-100"
+                  >
+                    🧪 Test Generic Completion
+                  </Button>
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
@@ -271,12 +276,7 @@ function CustomerForm({
           <CardFooter className="pt-6">
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200 cursor-pointer transform-gpu"
-              style={{
-                WebkitTransform: 'translateZ(0)',
-                WebkitBackfaceVisibility: 'hidden',
-                perspective: 1000
-              }}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

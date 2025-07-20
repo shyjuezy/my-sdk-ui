@@ -4,9 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:debug": "NODE_OPTIONS='--inspect=9229' next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:sdk": "cd ../vecu-idv-web-sdk && npm run dev",
+    "link:sdk": "cd ../vecu-idv-web-sdk && npm link && cd ../my-sdk-ui && npm link vecu-idv-web-sdk",
+    "unlink:sdk": "npm unlink vecu-idv-web-sdk && cd ../vecu-idv-web-sdk && npm unlink",
+    "debug:chrome": "google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --disable-web-security --disable-features=VizDisplayCompositor http://localhost:3000"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.7",
@@ -22,7 +27,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.3.1",
-    "vecu-idv-web-sdk": "^1.0.1"
+    "vecu-idv-web-sdk": "^1.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -32,6 +37,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.5",
+    "source-map-loader": "^5.0.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5"
   }
