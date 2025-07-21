@@ -1,9 +1,9 @@
-import React from 'react';
-import { FloatingInput } from '@/components/ui/floating-input';
-import { FloatingSelect } from '@/components/ui/floating-select';
-import { Building2, MapPin, Globe } from 'lucide-react';
-import { CustomerInfo, ValidationErrors } from '@/types/verification';
-import { US_STATES } from '@/lib/us-states';
+import React from "react";
+import { FloatingInput } from "@/components/ui/floating-input";
+import { FloatingSelect } from "@/components/ui/floating-select";
+import { Building2, MapPin, Globe } from "lucide-react";
+import { CustomerInfo, ValidationErrors } from "@/types/verification";
+import { US_STATES } from "@/lib/us-states";
 
 interface AddressInfoSectionProps {
   formData: CustomerInfo;
@@ -12,11 +12,11 @@ interface AddressInfoSectionProps {
   onSelectChange: (name: string, value: string) => void;
 }
 
-export function AddressInfoSection({ 
-  formData, 
-  validationErrors, 
+export function AddressInfoSection({
+  formData,
+  validationErrors,
   onInputChange,
-  onSelectChange
+  onSelectChange,
 }: AddressInfoSectionProps) {
   return (
     <fieldset className="space-y-4">
@@ -30,12 +30,11 @@ export function AddressInfoSection({
           name="address.line1"
           value={formData.address.line1}
           onChange={onInputChange}
-          required
-          label="Address Line 1"
+          // required
+          label="Address Line 1 (Optional)"
           icon={Building2}
           autoComplete="address-line1"
-          aria-required="true"
-          error={validationErrors['address.line1']}
+          error={validationErrors["address.line1"]}
         />
       </div>
 
@@ -58,12 +57,11 @@ export function AddressInfoSection({
             name="address.locality"
             value={formData.address.locality}
             onChange={onInputChange}
-            required
-            label="City"
+            // required
+            label="City (Optional)"
             icon={MapPin}
             autoComplete="address-level2"
-            aria-required="true"
-            error={validationErrors['address.locality']}
+            error={validationErrors["address.locality"]}
           />
         </div>
         <div>
@@ -71,12 +69,14 @@ export function AddressInfoSection({
             id="address.majorAdminDivision"
             name="address.majorAdminDivision"
             value={formData.address.majorAdminDivision}
-            onValueChange={(value) => onSelectChange('address.majorAdminDivision', value)}
+            onValueChange={(value) =>
+              onSelectChange("address.majorAdminDivision", value)
+            }
             options={US_STATES}
-            required
-            label="State"
+            // required
+            label="State (Optional)"
             icon={Globe}
-            error={validationErrors['address.majorAdminDivision']}
+            error={validationErrors["address.majorAdminDivision"]}
           />
         </div>
         <div>
@@ -85,15 +85,14 @@ export function AddressInfoSection({
             name="address.postalCode"
             value={formData.address.postalCode}
             onChange={onInputChange}
-            required
-            label="Postal Code"
+            // required
+            label="Postal Code (Optional)"
             icon={MapPin}
             maxLength={5}
             autoComplete="postal-code"
             inputMode="numeric"
             pattern="[0-9]{5}"
-            aria-required="true"
-            error={validationErrors['address.postalCode']}
+            error={validationErrors["address.postalCode"]}
           />
         </div>
       </div>

@@ -1,6 +1,10 @@
-import { useState, useCallback } from 'react';
-import { CustomerInfo, ValidationErrors } from '@/types/verification';
-import { validateEmail, validatePhoneNumber, formatPhoneNumber } from '@/lib/validation';
+import { useState, useCallback } from "react";
+import { CustomerInfo, ValidationErrors } from "@/types/verification";
+import {
+  validateEmail,
+  validatePhoneNumber,
+  formatPhoneNumber,
+} from "@/lib/validation";
 
 export function useCustomerForm() {
   const [formData, setFormData] = useState<CustomerInfo>({
@@ -21,88 +25,95 @@ export function useCustomerForm() {
     },
   });
 
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
+    {}
+  );
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
 
-    if (name.startsWith("address.")) {
-      const addressField = name.split(".")[1];
-      
-      // Capitalize first letter of each word for city field
-      let processedValue = value;
-      if (addressField === "locality") {
-        processedValue = value
-          .split(' ')
-          .map(word => {
-            if (word.length === 0) return word;
-            // Handle special cases like "st." or "mt."
-            if (word.toLowerCase().endsWith('.')) {
+      if (name.startsWith("address.")) {
+        const addressField = name.split(".")[1];
+
+        // Capitalize first letter of each word for city field
+        let processedValue = value;
+        if (addressField === "locality") {
+          processedValue = value
+            .split(" ")
+            .map((word) => {
+              if (word.length === 0) return word;
+              // Handle special cases like "st." or "mt."
+              if (word.toLowerCase().endsWith(".")) {
+                return (
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                );
+              }
               return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-            }
-            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-          })
-          .join(' ');
-      }
-      
-      setFormData((prev) => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          [addressField]: processedValue,
-        },
-      }));
-    } else {
-      // Handle phone number formatting
-      if (name === "phone") {
-        const formattedPhone = formatPhoneNumber(value);
+            })
+            .join(" ");
+        }
+
         setFormData((prev) => ({
           ...prev,
-          [name]: formattedPhone,
+          address: {
+            ...prev.address,
+            [addressField]: processedValue,
+          },
         }));
-
-        // Real-time validation for phone
-        if (!formattedPhone || !validatePhoneNumber(formattedPhone)) {
-          setValidationErrors((prev) => ({
+      } else {
+        // Handle phone number formatting
+        if (name === "phone") {
+          const formattedPhone = formatPhoneNumber(value);
+          setFormData((prev) => ({
             ...prev,
-            phone: "Please enter a valid 10-digit US phone number",
+            [name]: formattedPhone,
           }));
-        } else {
-          setValidationErrors((prev) => ({
+
+          // Real-time validation for phone
+          if (!formattedPhone || !validatePhoneNumber(formattedPhone)) {
+            setValidationErrors((prev) => ({
+              ...prev,
+              phone: "Please enter a valid 10-digit US phone number",
+            }));
+          } else {
+            setValidationErrors((prev) => ({
+              ...prev,
+              phone: undefined,
+            }));
+          }
+        }
+        // Handle email validation
+        else if (name === "email") {
+          setFormData((prev) => ({
             ...prev,
-            phone: undefined,
+            [name]: value,
+          }));
+
+          // Real-time validation for email
+          if (!value || !validateEmail(value)) {
+            setValidationErrors((prev) => ({
+              ...prev,
+              email: "Please enter a valid email address",
+            }));
+          } else {
+            setValidationErrors((prev) => ({
+              ...prev,
+              email: undefined,
+            }));
+          }
+        }
+        // Handle other fields
+        else {
+          setFormData((prev) => ({
+            ...prev,
+            [name]: value,
           }));
         }
       }
-      // Handle email validation
-      else if (name === "email") {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: value,
-        }));
-
-        // Real-time validation for email
-        if (!value || !validateEmail(value)) {
-          setValidationErrors((prev) => ({
-            ...prev,
-            email: "Please enter a valid email address",
-          }));
-        } else {
-          setValidationErrors((prev) => ({
-            ...prev,
-            email: undefined,
-          }));
-        }
-      }
-      // Handle other fields
-      else {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: value,
-        }));
-      }
-    }
-  }, []);
+    },
+    []
+  );
 
   const handleSelectChange = useCallback((name: string, value: string) => {
     if (name.startsWith("address.")) {
@@ -142,18 +153,7 @@ export function useCustomerForm() {
     } else if (!validatePhoneNumber(formData.phone)) {
       errors.phone = "Please enter a valid 10-digit US phone number";
     }
-    if (!formData.address.line1.trim()) {
-      errors['address.line1'] = "Address line 1 is required";
-    }
-    if (!formData.address.locality.trim()) {
-      errors['address.locality'] = "City is required";
-    }
-    if (!formData.address.majorAdminDivision) {
-      errors['address.majorAdminDivision'] = "State is required";
-    }
-    if (!formData.address.postalCode.trim()) {
-      errors['address.postalCode'] = "Postal code is required";
-    }
+    // Address fields are no longer required - validation removed
 
     return errors;
   }, [formData]);

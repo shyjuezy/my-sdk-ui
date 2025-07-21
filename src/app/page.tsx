@@ -43,7 +43,7 @@ export default function Home() {
   } = useVerificationSDK();
 
   // Show form when not verifying and not completed
-  const showForm = !isVerifying && verificationState !== 'completed';
+  const showForm = !isVerifying && verificationState !== "completed";
 
   const verificationMutation = useMutation({
     mutationFn: startVerification,
@@ -58,7 +58,10 @@ export default function Home() {
         showToast("Verification started successfully!", "success");
 
         try {
-          await initializeSDKVerification(response.data.providerDocumentId);
+          await initializeSDKVerification(
+            response.data.providerDocumentId,
+            response.data.provider as string
+          );
         } catch (error) {
           showToast(
             `Error initializing verification: ${(error as Error).message}`,
@@ -121,7 +124,6 @@ export default function Home() {
 
   return (
     <>
-
       {/* Toast notifications */}
       {toasts.map((toast) => (
         <Toast
@@ -179,20 +181,28 @@ export default function Home() {
                 }}
               />
             )}
-            
+
             {/* Debug Button - Development Only */}
-            {process.env.NODE_ENV === 'development' && isVerifying && (
+            {process.env.NODE_ENV === "development" && isVerifying && false && (
               <div className="max-w-4xl mx-auto mt-4">
                 <div className="flex gap-2 justify-center">
                   <Button
-                    onClick={() => triggerCompletion('Verification complete! Check your SMS for further instructions.')}
+                    onClick={() =>
+                      triggerCompletion(
+                        "Verification complete! Check your SMS for further instructions."
+                      )
+                    }
                     variant="outline"
                     className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
                   >
                     🧪 Test SMS Completion
                   </Button>
                   <Button
-                    onClick={() => triggerCompletion('Verification complete! Please check your email for further instructions.')}
+                    onClick={() =>
+                      triggerCompletion(
+                        "Verification complete! Please check your email for further instructions."
+                      )
+                    }
                     variant="outline"
                     className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
                   >
