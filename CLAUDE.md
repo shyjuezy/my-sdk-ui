@@ -37,14 +37,10 @@ This is a Next.js 15.3.5 application with App Router that serves as a testing in
    - Real-time event logging
    - Embedded verification UI container
 
-2. **Local SDK** (`lib/vecu-idv-web-sdk/`): Custom TypeScript SDK providing:
+2. **SDK Integration**: Uses the VECU IDV Web SDK via npm package:
    - Unified interface for multiple identity verification providers
    - Event-driven architecture
    - Lazy loading of providers
-   - Built with Rollup, includes UMD, ESM, and CommonJS formats
-
-3. **TypeScript Configuration**: 
-   - Path alias for SDK: `"vecu-idv-web-sdk"` maps to `"./lib/vecu-idv-web-sdk/dist/index"`
    - Custom type definitions in `src/types/vecu-idv.d.ts`
 
 ### SDK Integration Pattern
@@ -70,7 +66,7 @@ const provider = await vecuIDVRef.current.providerLoader.load('socure');
 
 ## Important Context
 
-- The SDK is not published to npm; it's included locally in the `lib` folder
+- The SDK is installed via npm package
 - The application supports both mock mode (for UI testing) and live mode (real Socure integration)
 - Event logging provides real-time feedback for debugging verification flows
 - The verification UI is embedded directly in the page container
