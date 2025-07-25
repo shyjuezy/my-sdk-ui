@@ -6,20 +6,14 @@ import {
   createTimer,
   debugBreakpoint,
 } from "@/utils/debug";
+import {
+  VecuIDV as VecuIDVType,
+  VecuIDVInstance,
+  VerificationEvent,
+} from "@/types/sdk";
 
 // Import SDK dynamically to avoid build issues
-let VecuIDV: typeof import("vecu-idv-web-sdk").VecuIDV | undefined;
-
-// Types for our specific implementation
-interface VerificationEvent {
-  type: string;
-  data: {
-    message?: string;
-    result?: Record<string, unknown>;
-    sessionId?: string;
-    error?: string;
-  };
-}
+let VecuIDV: VecuIDVType | undefined;
 
 export function useVerificationSDK() {
   const [isVerifying, setIsVerifying] = useState(false);
@@ -31,9 +25,7 @@ export function useVerificationSDK() {
     result: Record<string, unknown>;
     sessionId: string;
   } | null>(null);
-  const vecuIDVRef = useRef<InstanceType<
-    typeof import("vecu-idv-web-sdk").VecuIDV
-  > | null>(null);
+  const vecuIDVRef = useRef<VecuIDVInstance | null>(null);
 
   const initializeSDKVerification = useCallback(
     async (docvToken: string, providerName: string) => {
@@ -50,25 +42,55 @@ export function useVerificationSDK() {
         setVerificationState("verifying");
         logger.sdk("Starting SDK verification initialization", { docvToken });
 
-        // Dynamically import the SDK
-        if (!VecuIDV) {
-          const { VecuIDV: VecuIDVClass } = await import("vecu-idv-web-sdk");
-          VecuIDV = VecuIDVClass;
+        // Load SDK dynamically from public folder using UMD build
+        if (!VecuIDV && typeof window !== "undefined") {
+          try {
+            // Use UMD build for better compatibility with dynamic loading
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "/lib/index.umd.js";
+              script.onload = () => {
+                logger.sdk("UMD script loaded successfully");
+                resolve();
+              };
+              script.onerror = (error) => {
+                logger.error("Failed to load UMD script", error);
+                reject(new Error("Failed to load SDK script"));
+              };
+              document.head.appendChild(script);
+            });
+
+            // UMD build should expose VecuIDV globally
+            const globalVecuIDV = (window as { VecuIDV?: Record<string, unknown> }).VecuIDV;
+            logger.sdk("Global VecuIDV object:", globalVecuIDV);
+            logger.sdk("Available keys on window.VecuIDV:", globalVecuIDV ? Object.keys(globalVecuIDV) : "none");
+            
+            if (!globalVecuIDV) {
+              throw new Error("VecuIDV not found on window object after UMD load");
+            }
+            
+            // The UMD build exposes the VecuIDV class in the namespace
+            VecuIDV = globalVecuIDV.VecuIDV as VecuIDVType;
+            logger.sdk("VecuIDV loaded from UMD build", VecuIDV);
+          } catch (error) {
+            logger.error("Failed to load SDK module", error);
+            throw new Error("Could not load VecuIDV SDK");
+          }
         }
 
         logger.sdk("VecuIDV imported from npm package", VecuIDV);
 
         // Initialize SDK
         const sdkConfig = {
-          apiKey: "your-real-api-key",
-          apiUrl: "http://localhost:3000/api",
-          environment: "development",
+          sdkKey: config.sdkKey, // For API client
+          apiUrl: config.sdkApiUrl,
+          environment: config.isDevelopment ? "development" : "production",
         };
 
         logger.sdk("Initializing SDK with config", sdkConfig);
         debugBreakpoint("Before SDK Construction", { config: sdkConfig });
 
-        vecuIDVRef.current = new VecuIDV(sdkConfig);
+        vecuIDVRef.current = new VecuIDV!(sdkConfig);
 
         logger.sdk("SDK instance created successfully");
         inspectSDKState(vecuIDVRef.current);
@@ -125,7 +147,11 @@ export function useVerificationSDK() {
           throw new Error("Failed to initialize SDK instance");
         }
 
-        logger.sdk("Using hardcoded test mode - bypassing backend API");
+        logger.sdk("Initializing SDK...");
+
+        // Initialize the SDK first
+        await sdkInstance.init();
+        logger.sdk("SDK initialized successfully");
 
         // Clear any existing content in the container before initializing
         const container = document.getElementById("verification-container");
@@ -136,64 +162,34 @@ export function useVerificationSDK() {
 
         logger.sdk("Container found and cleared");
 
-        // Force the SDK to be initialized without calling the backend
-        // @ts-expect-error - Accessing private property for test mode
-        sdkInstance.initialized = true;
-
-        // Create a minimal test session with DocV token
-        const testSessionData = {
-          id: "session-" + Date.now(),
+        // Create verification session using the new API
+        const startVerificationOptions = {
           provider: providerName,
-          providerSessionId: docvToken,
-          status: "pending" as const,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        logger.sdk("Created test session data", testSessionData);
-
-        // Store the session in the SDK's active sessions
-        // @ts-expect-error - Accessing private property for test mode
-        sdkInstance.activeSessions.set(testSessionData.id, testSessionData);
-        logger.sdk("Stored session in activeSessions map");
-
-        // Load the specified provider (this triggers auto-connect event forwarding)
-        const providerTimer = createTimer("Provider Loading");
-        logger.sdk(`Loading ${providerName} provider...`);
-        // @ts-expect-error - Accessing private property for test mode
-        const provider = await sdkInstance.providerLoader.load(providerName);
-        providerTimer.end();
-
-        logger.sdk(
-          "Provider loaded successfully - auto-connect event forwarding should be active"
-        );
-
-        // Initialize the verification UI with DocV token
-        logger.sdk(
-          "Initializing verification UI with container and DocV token"
-        );
-        debugBreakpoint("Before Provider Initialization", {
-          sessionId: testSessionData.id,
-          token: docvToken,
-          publicKey: config.sdkKey,
-        });
-
-        const verificationTimer = createTimer("Verification UI Initialization");
-        await provider.initializeVerification({
-          sessionId: testSessionData.id,
           token: docvToken,
           container: container as HTMLElement,
-          mode: "embedded",
+          mode: "embedded" as const,
           config: {
             publicKey: config.sdkKey,
             qrCode: true,
           },
+        };
+
+        debugBreakpoint("Before Verification Start", {
+          token: docvToken,
+          providerName: providerName,
+          publicKey: config.sdkKey,
         });
+
+        const verificationTimer = createTimer("Verification Start");
+        const cleanup = await sdkInstance.startVerification(
+          startVerificationOptions
+        );
         verificationTimer.end();
 
-        logger.sdk(
-          "Verification UI initialized successfully with hardcoded test setup"
-        );
+        logger.sdk("Verification started successfully", {
+          provider: providerName,
+          token: docvToken,
+        });
 
         logger.provider(
           providerName,
@@ -201,9 +197,7 @@ export function useVerificationSDK() {
         );
         initTimer.end();
 
-        return () => {
-          logger.sdk("Cleanup function called");
-        };
+        return cleanup;
       } catch (error) {
         console.error("SDK initialization error:", error);
         setIsVerifying(false);
@@ -247,27 +241,6 @@ export function useVerificationSDK() {
     }
   }, []);
 
-  // Manual trigger for testing - forces completion state
-  const triggerCompletion = useCallback((testMessage?: string) => {
-    const completionData = {
-      message:
-        testMessage || "Verification completed successfully! (Manual trigger)",
-      result: { status: "completed" } as Record<string, unknown>,
-      sessionId: "manual-test-session",
-    };
-
-    // Clear container
-    const container = document.getElementById("verification-container");
-    if (container) {
-      container.innerHTML = "";
-      container.style.display = "none";
-    }
-
-    setCompletionData(completionData);
-    setVerificationState("completed");
-    setIsVerifying(false);
-  }, []);
-
   return {
     isVerifying,
     verificationState,
@@ -275,6 +248,5 @@ export function useVerificationSDK() {
     initializeSDKVerification,
     stopVerification,
     resetVerification,
-    triggerCompletion, // For manual testing
   };
 }
