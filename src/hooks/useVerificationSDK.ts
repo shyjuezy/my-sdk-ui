@@ -1,19 +1,15 @@
 import { useState, useRef, useCallback } from "react";
 import { config } from "@/lib/config";
-import {
-  logger,
-  inspectSDKState,
-  createTimer,
-  debugBreakpoint,
-} from "@/utils/debug";
-import {
-  VecuIDV as VecuIDVType,
-  VecuIDVInstance,
-  VerificationEvent,
-} from "@/types/sdk";
+import { logger, createTimer, debugBreakpoint } from "@/utils/debug";
 
-// Import SDK dynamically to avoid build issues
-let VecuIDV: VecuIDVType | undefined;
+// Import the published SDK package
+import { createVecuIDVSDK } from "vecu-idv-web2-sdk";
+
+// Types for verification results
+interface VerificationResult {
+  sessionId?: string;
+  [key: string]: unknown;
+}
 
 export function useVerificationSDK() {
   const [isVerifying, setIsVerifying] = useState(false);
@@ -25,168 +21,110 @@ export function useVerificationSDK() {
     result: Record<string, unknown>;
     sessionId: string;
   } | null>(null);
-  const vecuIDVRef = useRef<VecuIDVInstance | null>(null);
+  const cleanupFnRef = useRef<(() => void) | null>(null);
 
   const initializeSDKVerification = useCallback(
     async (docvToken: string, providerName: string) => {
       const initTimer = createTimer("SDK Initialization");
-
-      console.log(
-        "initializeSDKVerification########################",
-        docvToken,
-        providerName
-      );
 
       try {
         setIsVerifying(true);
         setVerificationState("verifying");
         logger.sdk("Starting SDK verification initialization", { docvToken });
 
-        // Load SDK dynamically from public folder using UMD build
-        if (!VecuIDV && typeof window !== "undefined") {
-          try {
-            // Use UMD build for better compatibility with dynamic loading
-            await new Promise<void>((resolve, reject) => {
-              const script = document.createElement("script");
-              script.src = "/lib/index.umd.js";
-              script.onload = () => {
-                logger.sdk("UMD script loaded successfully");
-                resolve();
-              };
-              script.onerror = (error) => {
-                logger.error("Failed to load UMD script", error);
-                reject(new Error("Failed to load SDK script"));
-              };
-              document.head.appendChild(script);
-            });
-
-            // UMD build should expose VecuIDV globally
-            const globalVecuIDV = (window as { VecuIDV?: Record<string, unknown> }).VecuIDV;
-            logger.sdk("Global VecuIDV object:", globalVecuIDV);
-            logger.sdk("Available keys on window.VecuIDV:", globalVecuIDV ? Object.keys(globalVecuIDV) : "none");
-            
-            if (!globalVecuIDV) {
-              throw new Error("VecuIDV not found on window object after UMD load");
-            }
-            
-            // The UMD build exposes the VecuIDV class in the namespace
-            VecuIDV = globalVecuIDV.VecuIDV as VecuIDVType;
-            logger.sdk("VecuIDV loaded from UMD build", VecuIDV);
-          } catch (error) {
-            logger.error("Failed to load SDK module", error);
-            throw new Error("Could not load VecuIDV SDK");
-          }
-        }
-
-        logger.sdk("VecuIDV imported from npm package", VecuIDV);
-
-        // Initialize SDK
-        const sdkConfig = {
-          sdkKey: config.sdkKey, // For API client
+        // NEW: Using published npm package
+        const sdkInstance = createVecuIDVSDK(config.sdkKey, {
           apiUrl: config.sdkApiUrl,
-          environment: config.isDevelopment ? "development" : "production",
-        };
-
-        logger.sdk("Initializing SDK with config", sdkConfig);
-        debugBreakpoint("Before SDK Construction", { config: sdkConfig });
-
-        vecuIDVRef.current = new VecuIDV!(sdkConfig);
-
-        logger.sdk("SDK instance created successfully");
-        inspectSDKState(vecuIDVRef.current);
-
-        // Subscribe to events - return cleanup function
-        const eventHandlers = {
-          "verification:completed": (event: VerificationEvent) => {
-            const message = String(
-              event.data.message || "Verification completed successfully!"
-            );
-            logger.sdk("🎉 Verification completed:", message, event.data);
-
-            const completionData = {
-              message,
-              result: (event.data.result || event.data) as Record<
-                string,
-                unknown
-              >,
-              sessionId: String(event.data.sessionId || "unknown"),
-            };
-
-            // Clear the verification container to remove Socure's "Thank You" message
-            const container = document.getElementById("verification-container");
-            if (container) {
-              container.innerHTML = "";
-              container.style.display = "none"; // Hide the container
-            }
-
-            // Set completion state and data
-            setCompletionData(completionData);
-            setVerificationState("completed");
-            setIsVerifying(false);
-          },
-          "verification:failed": (event: VerificationEvent) => {
-            logger.error("Verification failed:", event.data.error);
-            setVerificationState("failed");
-            setIsVerifying(false);
-          },
-          error: (event: VerificationEvent) => {
-            logger.error("SDK Error:", event.data.message);
-            setVerificationState("failed");
-            setIsVerifying(false);
-          },
-        };
-
-        // Register event handlers
-        Object.entries(eventHandlers).forEach(([eventName, handler]) => {
-          vecuIDVRef.current?.on(eventName, handler);
-          logger.sdk(`✅ Registered event handler: ${eventName}`);
+          debug: config.isDevelopment,
+          logLevel: config.isDevelopment ? "debug" : "info",
         });
 
-        const sdkInstance = vecuIDVRef.current;
-        if (!sdkInstance) {
-          throw new Error("Failed to initialize SDK instance");
-        }
+        logger.sdk("SDK configured with:", {
+          apiUrl: config.sdkApiUrl,
+          debug: config.isDevelopment,
+        });
 
-        logger.sdk("Initializing SDK...");
-
-        // Initialize the SDK first
-        await sdkInstance.init();
-        logger.sdk("SDK initialized successfully");
-
-        // Clear any existing content in the container before initializing
+        // Find and prepare the verification container
         const container = document.getElementById("verification-container");
         if (!container) {
           throw new Error("Verification container not found");
         }
-        container.innerHTML = "";
 
-        logger.sdk("Container found and cleared");
+        // Clear any existing content and make it visible with loading spinner
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center min-h-[400px] space-y-4 m-auto">
+            <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <p class="text-gray-600 text-lg">Loading verification ...</p>
+            <p class="text-gray-500 text-sm">Please wait while we prepare your verification</p>
+          </div>
+        `;
+        container.classList.remove("hidden");
+        container.style.display = "flex";
 
-        // Create verification session using the new API
-        const startVerificationOptions = {
-          provider: providerName,
+        // Ensure container is ready
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        logger.sdk("Container found and prepared with loading spinner");
+
+        debugBreakpoint("Before SDK Launch", {
           token: docvToken,
-          container: container as HTMLElement,
-          mode: "embedded" as const,
+          providerName: providerName,
+          sdkKey: config.sdkKey,
+        });
+
+        const verificationTimer = createTimer("SDK Launch");
+
+        // Update loading message
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center min-h-[400px] space-y-4 m-auto">
+            <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <p class="text-gray-600 text-lg">Initializing verification...</p>
+            <p class="text-gray-500 text-sm">Starting verification process</p>
+          </div>
+        `;
+
+        // NEW: Launch verification with the published SDK
+        cleanupFnRef.current = await sdkInstance.launch(docvToken, container, {
+          provider: providerName,
+          mode: "embedded",
+          onProgress: (event) => {
+            logger.sdk(`Progress: ${event.step} (${event.percentage}%)`, event);
+          },
+          onSuccess: (result: VerificationResult) => {
+            logger.sdk("🎉 Verification completed successfully!", result);
+
+            const completionData = {
+              message: "Verification completed successfully!",
+              result: result || {},
+              sessionId: result?.sessionId || docvToken,
+            };
+
+            // Clear and hide the verification container
+            const container = document.getElementById("verification-container");
+            if (container) {
+              container.innerHTML = "";
+              container.style.display = "none";
+              container.classList.add("hidden");
+            }
+
+            setCompletionData(completionData);
+            setVerificationState("completed");
+            setIsVerifying(false);
+          },
+          onError: (error) => {
+            logger.error("Verification failed:", error);
+            setVerificationState("failed");
+            setIsVerifying(false);
+          },
           config: {
             publicKey: config.sdkKey,
             qrCode: true,
           },
-        };
-
-        debugBreakpoint("Before Verification Start", {
-          token: docvToken,
-          providerName: providerName,
-          publicKey: config.sdkKey,
         });
 
-        const verificationTimer = createTimer("Verification Start");
-        const cleanup = await sdkInstance.startVerification(
-          startVerificationOptions
-        );
         verificationTimer.end();
 
-        logger.sdk("Verification started successfully", {
+        logger.sdk("SDK verification launched successfully", {
           provider: providerName,
           token: docvToken,
         });
@@ -197,7 +135,101 @@ export function useVerificationSDK() {
         );
         initTimer.end();
 
-        return cleanup;
+        return cleanupFnRef.current;
+
+        /* OLD IMPLEMENTATION - COMMENTED OUT
+        // Load SDK bundle dynamically
+        if (typeof window !== "undefined" && !(window as any).VecuIDVSDK) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "/lib/vecu-idv-sdk.bundle.js";
+              script.onload = () => {
+                logger.sdk("SDK bundle loaded successfully");
+                resolve();
+              };
+              script.onerror = (error) => {
+                logger.error("Failed to load SDK bundle", error);
+                reject(new Error("Failed to load SDK bundle"));
+              };
+              document.head.appendChild(script);
+            });
+
+            // Check if VecuIDVSDK is available
+            const globalSDK = (window as any).VecuIDVSDK as
+              | IVecuIDVSDKGlobal
+              | undefined;
+            if (!globalSDK) {
+              throw new Error(
+                "VecuIDVSDK not found on window object after bundle load"
+              );
+            }
+
+            logger.sdk("VecuIDVSDK loaded successfully", globalSDK);
+          } catch (error) {
+            logger.error("Failed to load SDK", error);
+            throw new Error("Could not load VecuIDV SDK");
+          }
+        }
+
+        const VecuIDVSDK = (window as any).VecuIDVSDK as IVecuIDVSDKGlobal;
+
+        // Configure SDK globally
+        VecuIDVSDK.configure({
+          apiUrl: config.sdkApiUrl,
+          debug: config.isDevelopment,
+          logLevel: config.isDevelopment ? "debug" : "info",
+        });
+
+        // Launch verification with the SDK
+        cleanupFnRef.current = await VecuIDVSDK.launch(
+          config.sdkKey,
+          docvToken,
+          container,
+          {
+            provider: providerName,
+            mode: "embedded",
+            onProgress: (event) => {
+              logger.sdk(
+                `Progress: ${event.step} (${event.percentage}%)`,
+                event
+              );
+            },
+            onSuccess: (result) => {
+              logger.sdk("🎉 Verification completed successfully!", result);
+
+              const completionData = {
+                message: "Verification completed successfully!",
+                result: result || {},
+                sessionId: result?.sessionId || docvToken,
+              };
+
+              // Clear and hide the verification container
+              const container = document.getElementById(
+                "verification-container"
+              );
+              if (container) {
+                container.innerHTML = "";
+                container.style.display = "none";
+                container.classList.add("hidden");
+              }
+
+              setCompletionData(completionData);
+              setVerificationState("completed");
+              setIsVerifying(false);
+            },
+            onError: (error) => {
+              logger.error("Verification failed:", error);
+              setVerificationState("failed");
+              setIsVerifying(false);
+            },
+            config: {
+              publicKey: config.sdkKey,
+              qrCode: true,
+            },
+          }
+        );
+        */
       } catch (error) {
         console.error("SDK initialization error:", error);
         setIsVerifying(false);
@@ -210,10 +242,10 @@ export function useVerificationSDK() {
 
   const stopVerification = useCallback(async () => {
     try {
-      // Clean up SDK instance
-      if (vecuIDVRef.current) {
-        vecuIDVRef.current.destroy();
-        vecuIDVRef.current = null;
+      // Call cleanup function if available
+      if (cleanupFnRef.current) {
+        cleanupFnRef.current();
+        cleanupFnRef.current = null;
       }
     } catch (error) {
       console.error("Error cleaning up:", error);
@@ -226,6 +258,8 @@ export function useVerificationSDK() {
     const container = document.getElementById("verification-container");
     if (container) {
       container.innerHTML = "";
+      container.style.display = "none";
+      container.classList.add("hidden");
     }
   }, []);
 
@@ -237,7 +271,8 @@ export function useVerificationSDK() {
     // Show the container again
     const container = document.getElementById("verification-container");
     if (container) {
-      container.style.display = "flex";
+      container.style.display = "none";
+      container.classList.add("hidden");
     }
   }, []);
 

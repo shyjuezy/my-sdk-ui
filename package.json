@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "dev:sdk": "cd ../vecu-idv-web-sdk && npm run dev",
+    "build:secure-sdk": "cd ../vecu-idv-web-sdk && npm run build:bundle && cp dist/vecu-idv-sdk.bundle.js ../my-sdk-ui/public/lib/",
+    "update:sdk": "cd ../vecu-idv-web-sdk && npm run build && cp -r dist/* ../my-sdk-ui/public/lib/",
     "link:sdk": "cd ../vecu-idv-web-sdk && npm link && cd ../my-sdk-ui && npm link vecu-idv-web-sdk",
     "unlink:sdk": "npm unlink vecu-idv-web-sdk && cd ../vecu-idv-web-sdk && npm unlink",
     "debug:chrome": "google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --disable-web-security --disable-features=VizDisplayCompositor http://localhost:3000"
@@ -27,7 +29,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.3.1",
-    "vecu-idv-web-sdk": "^1.0.2"
+    "vecu-idv-web2-sdk": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

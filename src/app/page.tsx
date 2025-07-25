@@ -155,32 +155,37 @@ export default function Home() {
 
           {/* Main Content */}
           <main>
-            {showForm ? (
-              <CustomerForm
-                formData={formData}
-                validationErrors={validationErrors}
-                onInputChange={handleInputChange}
-                onSelectChange={handleSelectChange}
-                onSubmit={handleSubmit}
-                isSubmitting={verificationMutation.isPending}
-              />
-            ) : (
-              <VerificationContainer
-                isVerifying={isVerifying}
-                verificationState={verificationState}
-                completionData={completionData}
-                onStopVerification={stopVerification}
-                onContinue={() => {
-                  showToast("Proceeding to next step...", "success");
-                  resetVerification();
-                }}
-                onStartNewVerification={() => {
-                  resetVerification();
-                  showToast("Ready for new verification", "info");
-                }}
-              />
-            )}
+            {/* Always render verification container for SDK */}
+            <div
+              id="verification-container"
+              className="hidden min-h-[600px] max-w-4xl mx-auto border-2 border-dashed rounded-lg border-gray-300"
+            />
 
+            <VerificationContainer
+              isVerifying={isVerifying}
+              verificationState={verificationState}
+              completionData={completionData}
+              onStopVerification={stopVerification}
+              onContinue={() => {
+                showToast("Proceeding to next step...", "success");
+                resetVerification();
+              }}
+              onStartNewVerification={() => {
+                resetVerification();
+                showToast("Ready for new verification", "info");
+              }}
+              showForm={showForm}
+              formElement={
+                <CustomerForm
+                  formData={formData}
+                  validationErrors={validationErrors}
+                  onInputChange={handleInputChange}
+                  onSelectChange={handleSelectChange}
+                  onSubmit={handleSubmit}
+                  isSubmitting={verificationMutation.isPending}
+                />
+              }
+            />
           </main>
         </div>
       </div>
