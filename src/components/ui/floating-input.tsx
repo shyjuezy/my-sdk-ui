@@ -66,6 +66,7 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             onBlur={handleBlur}
             onChange={handleChange}
             placeholder={label}
+            suppressHydrationWarning
             {...props}
           />
           

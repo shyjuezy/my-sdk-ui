@@ -39,7 +39,6 @@ export default function Home() {
     initializeSDKVerification,
     stopVerification,
     resetVerification,
-    triggerCompletion,
   } = useVerificationSDK();
 
   // Show form when not verifying and not completed
@@ -54,12 +53,12 @@ export default function Home() {
         console.log("===========================");
       }
 
-      if (response.success && response.data?.providerDocumentId) {
+      if (response.success && response.data?.provider_document_id) {
         showToast("Verification started successfully!", "success");
 
         try {
           await initializeSDKVerification(
-            response.data.providerDocumentId,
+            response.data.provider_document_id as string,
             response.data.provider as string
           );
         } catch (error) {
@@ -71,7 +70,7 @@ export default function Home() {
         }
       } else if (response.success) {
         showToast(
-          "Verification started but no providerDocumentId received",
+          "Verification started but no provider_document_id received",
           "error"
         );
       } else {
@@ -156,68 +155,37 @@ export default function Home() {
 
           {/* Main Content */}
           <main>
-            {showForm ? (
-              <CustomerForm
-                formData={formData}
-                validationErrors={validationErrors}
-                onInputChange={handleInputChange}
-                onSelectChange={handleSelectChange}
-                onSubmit={handleSubmit}
-                isSubmitting={verificationMutation.isPending}
-              />
-            ) : (
-              <VerificationContainer
-                isVerifying={isVerifying}
-                verificationState={verificationState}
-                completionData={completionData}
-                onStopVerification={stopVerification}
-                onContinue={() => {
-                  showToast("Proceeding to next step...", "success");
-                  resetVerification();
-                }}
-                onStartNewVerification={() => {
-                  resetVerification();
-                  showToast("Ready for new verification", "info");
-                }}
-              />
-            )}
+            {/* Always render verification container for SDK */}
+            <div
+              id="verification-container"
+              className="hidden min-h-[600px] max-w-4xl mx-auto border-2 border-dashed rounded-lg border-gray-300"
+            />
 
-            {/* Debug Button - Development Only */}
-            {process.env.NODE_ENV === "development" && isVerifying && false && (
-              <div className="max-w-4xl mx-auto mt-4">
-                <div className="flex gap-2 justify-center">
-                  <Button
-                    onClick={() =>
-                      triggerCompletion(
-                        "Verification complete! Check your SMS for further instructions."
-                      )
-                    }
-                    variant="outline"
-                    className="bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100"
-                  >
-                    🧪 Test SMS Completion
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      triggerCompletion(
-                        "Verification complete! Please check your email for further instructions."
-                      )
-                    }
-                    variant="outline"
-                    className="bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
-                  >
-                    🧪 Test Email Completion
-                  </Button>
-                  <Button
-                    onClick={() => triggerCompletion()}
-                    variant="outline"
-                    className="bg-green-50 border-green-300 text-green-800 hover:bg-green-100"
-                  >
-                    🧪 Test Generic Completion
-                  </Button>
-                </div>
-              </div>
-            )}
+            <VerificationContainer
+              isVerifying={isVerifying}
+              verificationState={verificationState}
+              completionData={completionData}
+              onStopVerification={stopVerification}
+              onContinue={() => {
+                showToast("Proceeding to next step...", "success");
+                resetVerification();
+              }}
+              onStartNewVerification={() => {
+                resetVerification();
+                showToast("Ready for new verification", "info");
+              }}
+              showForm={showForm}
+              formElement={
+                <CustomerForm
+                  formData={formData}
+                  validationErrors={validationErrors}
+                  onInputChange={handleInputChange}
+                  onSelectChange={handleSelectChange}
+                  onSubmit={handleSubmit}
+                  isSubmitting={verificationMutation.isPending}
+                />
+              }
+            />
           </main>
         </div>
       </div>
@@ -261,7 +229,7 @@ function CustomerForm({
           </CardDescription>
         </CardHeader>
 
-        <form onSubmit={onSubmit} noValidate>
+        <form onSubmit={onSubmit} noValidate suppressHydrationWarning>
           <CardContent className="space-y-6">
             <PersonalInfoSection
               formData={formData}

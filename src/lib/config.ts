@@ -3,12 +3,14 @@
 interface Config {
   apiBaseUrl: string;
   sdkKey: string;
+  sdkApiUrl: string;
   isDevelopment: boolean;
 }
 
 function getConfig(): Config {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   const sdkKey = process.env.NEXT_PUBLIC_SDK_KEY;
+  const sdkApiUrl = process.env.NEXT_PUBLIC_SDK_API_URL;
 
   if (!apiBaseUrl) {
     console.warn(
@@ -22,11 +24,20 @@ function getConfig(): Config {
     );
   }
 
+  if (!sdkApiUrl) {
+    console.warn(
+      "NEXT_PUBLIC_SDK_API_URL is not defined. Using default value. Please check your .env.local file."
+    );
+  }
+
   return {
     apiBaseUrl:
       apiBaseUrl ||
       "https://mpbahqqt37.execute-api.us-east-1.amazonaws.com/latest",
-    sdkKey: sdkKey || "d3cxxxxx-rrrr-rrrr-rrrr-rrrrrrrrrrrr",
+    sdkKey: sdkKey || "sdk_dev_cd_05369765047649393851643615662941",
+    sdkApiUrl:
+      sdkApiUrl ||
+      "https://c0j9hytfof.execute-api.us-east-1.amazonaws.com/shyju2",
     isDevelopment: process.env.NODE_ENV === "development",
   };
 }
