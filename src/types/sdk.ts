@@ -2,7 +2,7 @@
 export interface VecuIDVConfig {
   sdkKey: string;
   apiUrl: string;
-  environment: string;
+  deploymentStage: string;
 }
 
 export interface VerificationEvent {

@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield } from "lucide-react";
+import { ArrowRight, Shield, FlaskConical, Code2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -59,7 +59,8 @@ export default function Home() {
         try {
           await initializeSDKVerification(
             response.data.provider_document_id as string,
-            response.data.provider as string
+            response.data.provider as string,
+            "sandbox"
           );
         } catch (error) {
           showToast(
@@ -139,18 +140,58 @@ export default function Home() {
 
         <div className="relative z-10 container mx-auto px-4 py-8">
           {/* Header */}
-          <header className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Identity Verification
-            </h1>
-            <Link href="/testing">
-              <Button
-                variant="outline"
-                className="border-gray-300 hover:border-indigo-500 hover:text-indigo-600 transition-colors duration-200"
-              >
-                Go to Testing Page
-              </Button>
-            </Link>
+          <header className="mb-12">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">
+                  Identity Verification
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Secure identity verification using server-side API integration
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Link href="/hybrid">
+                  <Button
+                    variant="outline"
+                    className="border-gray-300 hover:border-indigo-500 hover:text-indigo-600 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <Code2 className="w-4 h-4" />
+                    Hybrid SDK Mode
+                  </Button>
+                </Link>
+                <Link href="/testing">
+                  <Button
+                    variant="outline"
+                    className="border-gray-300 hover:border-purple-500 hover:text-purple-600 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <FlaskConical className="w-4 h-4" />
+                    Testing Mode
+                  </Button>
+                </Link>
+              </div>
+            </div>
+            
+            {/* Info Banner */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Server-Side API Mode
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>
+                      This mode uses server actions to call the verification API, avoiding CORS issues and keeping your API credentials secure.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </header>
 
           {/* Main Content */}
@@ -227,6 +268,10 @@ function CustomerForm({
           <CardDescription className="text-gray-600">
             Please provide your information to begin the verification process
           </CardDescription>
+          <div className="inline-flex items-center gap-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full mt-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            Server-Side API
+          </div>
         </CardHeader>
 
         <form onSubmit={onSubmit} noValidate suppressHydrationWarning>

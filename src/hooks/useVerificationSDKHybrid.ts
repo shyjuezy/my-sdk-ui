@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from "react";
 import { config } from "@/lib/config";
 import { logger, createTimer } from "@/utils/debug";
+import type { CustomerInfo } from "@/types/customer";
 
-// Types for SDK global interface
+// Types for SDK global interface with hybrid approach
 interface IVecuIDVSDKGlobal {
   launch: (
     sdkKey: string,
@@ -23,17 +24,42 @@ interface IVecuIDVSDKGlobal {
       config?: Record<string, unknown>;
     }
   ) => Promise<() => void>;
+  startVerificationWithCustomer: (
+    sdkKey: string,
+    containerSelector: string | HTMLElement,
+    options: {
+      customerInfo: CustomerInfo;
+      referenceId?: string;
+      onProgress?: (event: {
+        step: string;
+        percentage: number;
+        message?: string;
+      }) => void;
+      onSuccess?: (result: unknown) => void;
+      onError?: (error: Error) => void;
+      provider?: string;
+      deploymentStage?: "sandbox" | "production" | "preprod";
+      mode?: "modal" | "embedded";
+      theme?: Record<string, unknown>;
+      language?: string;
+      config?: Record<string, unknown>;
+    }
+  ) => Promise<() => void>;
   configure: (options: {
     apiUrl?: string;
     timeout?: number;
     maxRetries?: number;
     logLevel?: "debug" | "info" | "warn" | "error";
     debug?: boolean;
+    enableDirectAPI?: boolean;
+    apiEndpoints?: {
+      startVerification?: string;
+    };
   }) => void;
 }
 
 
-export function useVerificationSDK() {
+export function useVerificationSDKHybrid() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationState, setVerificationState] = useState<
     "idle" | "verifying" | "completed" | "failed"
@@ -45,18 +71,20 @@ export function useVerificationSDK() {
   } | null>(null);
   const cleanupFnRef = useRef<(() => void) | null>(null);
 
-  const initializeSDKVerification = useCallback(
+  const initializeSDKVerificationWithCustomer = useCallback(
     async (
-      docvToken: string,
-      providerName: string,
+      customerInfo: CustomerInfo,
       deploymentStage: "sandbox" | "production" | "preprod"
     ) => {
-      const initTimer = createTimer("SDK Initialization");
+      const initTimer = createTimer("SDK Hybrid Initialization");
 
       try {
         setIsVerifying(true);
         setVerificationState("verifying");
-        logger.sdk("Starting SDK verification initialization", { docvToken });
+        logger.sdk("Starting SDK hybrid verification initialization", {
+          customerInfo,
+          deploymentStage,
+        });
 
         // Load SDK bundle dynamically
         if (typeof window !== "undefined" && !(window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK) {
@@ -92,11 +120,12 @@ export function useVerificationSDK() {
 
         const VecuIDVSDK = (window as unknown as { VecuIDVSDK: IVecuIDVSDKGlobal }).VecuIDVSDK;
 
-        // Configure SDK globally with proxy URL
+        // Configure SDK globally with enableDirectAPI and proxy URL
         VecuIDVSDK.configure({
           apiUrl: "/api/vecu-proxy", // Use proxy to avoid CORS
           debug: config.isDevelopment,
           logLevel: config.isDevelopment ? "debug" : "info",
+          enableDirectAPI: true,
         });
 
         // Find and prepare the verification container
@@ -121,13 +150,7 @@ export function useVerificationSDK() {
 
         logger.sdk("Container found and prepared with loading spinner");
 
-        // debugBreakpoint("Before SDK Launch", {
-        //   token: docvToken,
-        //   providerName: providerName,
-        //   sdkKey: config.sdkKey,
-        // });
-
-        const verificationTimer = createTimer("SDK Launch");
+        const verificationTimer = createTimer("SDK Launch with Customer");
 
         // Update loading message
         container.innerHTML = `
@@ -138,13 +161,13 @@ export function useVerificationSDK() {
           </div>
         `;
 
-        // Launch verification with the SDK
-        cleanupFnRef.current = await VecuIDVSDK.launch(
+        // Use the new hybrid method
+        cleanupFnRef.current = await VecuIDVSDK.startVerificationWithCustomer(
           config.sdkKey,
-          docvToken,
           container,
           {
-            provider: providerName,
+            customerInfo,
+            deploymentStage,
             mode: "embedded",
             onProgress: (event) => {
               logger.sdk(
@@ -158,7 +181,7 @@ export function useVerificationSDK() {
               const completionData = {
                 message: "Verification completed successfully!",
                 result: (result as Record<string, unknown>) || {},
-                sessionId: (result as { sessionId?: string })?.sessionId || docvToken,
+                sessionId: (result as { sessionId?: string })?.sessionId || "unknown",
               };
 
               // Clear and hide the verification container
@@ -181,7 +204,6 @@ export function useVerificationSDK() {
               setIsVerifying(false);
             },
             config: {
-              deploymentStage: deploymentStage,
               qrCode: true,
             },
           }
@@ -189,20 +211,14 @@ export function useVerificationSDK() {
 
         verificationTimer.end();
 
-        logger.sdk("SDK verification launched successfully", {
-          provider: providerName,
-          token: docvToken,
+        logger.sdk("SDK hybrid verification launched successfully", {
+          deploymentStage,
         });
-
-        logger.provider(
-          providerName,
-          "Verification UI initialized successfully"
-        );
         initTimer.end();
 
         return cleanupFnRef.current;
       } catch (error) {
-        console.error("SDK initialization error:", error);
+        console.error("SDK hybrid initialization error:", error);
         setIsVerifying(false);
         setVerificationState("failed");
         throw error;
@@ -251,7 +267,7 @@ export function useVerificationSDK() {
     isVerifying,
     verificationState,
     completionData,
-    initializeSDKVerification,
+    initializeSDKVerificationWithCustomer,
     stopVerification,
     resetVerification,
   };
