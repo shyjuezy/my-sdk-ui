@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { config } from "@/lib/config";
-import { logger, createTimer } from "@/utils/debug";
+import { logger, createTimer, debugBreakpoint } from "@/utils/debug";
 
 // Types for SDK global interface
 interface IVecuIDVSDKGlobal {
@@ -14,10 +14,10 @@ interface IVecuIDVSDKGlobal {
         percentage: number;
         message?: string;
       }) => void;
-      onSuccess?: (result: unknown) => void;
+      onSuccess?: (result: any) => void;
       onError?: (error: Error) => void;
       provider?: string;
-      mode?: "modal" | "embedded";
+      mode?: 'modal' | 'embedded';
       theme?: Record<string, unknown>;
       language?: string;
       config?: Record<string, unknown>;
@@ -27,11 +27,16 @@ interface IVecuIDVSDKGlobal {
     apiUrl?: string;
     timeout?: number;
     maxRetries?: number;
-    logLevel?: "debug" | "info" | "warn" | "error";
+    logLevel?: 'debug' | 'info' | 'warn' | 'error';
     debug?: boolean;
   }) => void;
 }
 
+// Types for verification results
+interface VerificationResult {
+  sessionId?: string;
+  [key: string]: unknown;
+}
 
 export function useVerificationSDK() {
   const [isVerifying, setIsVerifying] = useState(false);
@@ -46,11 +51,7 @@ export function useVerificationSDK() {
   const cleanupFnRef = useRef<(() => void) | null>(null);
 
   const initializeSDKVerification = useCallback(
-    async (
-      docvToken: string,
-      providerName: string,
-      deploymentStage: "sandbox" | "production" | "preprod"
-    ) => {
+    async (docvToken: string, providerName: string) => {
       const initTimer = createTimer("SDK Initialization");
 
       try {
@@ -59,7 +60,7 @@ export function useVerificationSDK() {
         logger.sdk("Starting SDK verification initialization", { docvToken });
 
         // Load SDK bundle dynamically
-        if (typeof window !== "undefined" && !(window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK) {
+        if (typeof window !== "undefined" && !(window as any).VecuIDVSDK) {
           try {
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement("script");
@@ -76,7 +77,9 @@ export function useVerificationSDK() {
             });
 
             // Check if VecuIDVSDK is available
-            const globalSDK = (window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK;
+            const globalSDK = (window as any).VecuIDVSDK as
+              | IVecuIDVSDKGlobal
+              | undefined;
             if (!globalSDK) {
               throw new Error(
                 "VecuIDVSDK not found on window object after bundle load"
@@ -90,11 +93,11 @@ export function useVerificationSDK() {
           }
         }
 
-        const VecuIDVSDK = (window as unknown as { VecuIDVSDK: IVecuIDVSDKGlobal }).VecuIDVSDK;
+        const VecuIDVSDK = (window as any).VecuIDVSDK as IVecuIDVSDKGlobal;
 
-        // Configure SDK globally with proxy URL
+        // Configure SDK globally
         VecuIDVSDK.configure({
-          apiUrl: "/api/vecu-proxy", // Use proxy to avoid CORS
+          apiUrl: config.sdkApiUrl,
           debug: config.isDevelopment,
           logLevel: config.isDevelopment ? "debug" : "info",
         });
@@ -121,11 +124,11 @@ export function useVerificationSDK() {
 
         logger.sdk("Container found and prepared with loading spinner");
 
-        // debugBreakpoint("Before SDK Launch", {
-        //   token: docvToken,
-        //   providerName: providerName,
-        //   sdkKey: config.sdkKey,
-        // });
+        debugBreakpoint("Before SDK Launch", {
+          token: docvToken,
+          providerName: providerName,
+          sdkKey: config.sdkKey,
+        });
 
         const verificationTimer = createTimer("SDK Launch");
 
@@ -157,8 +160,8 @@ export function useVerificationSDK() {
 
               const completionData = {
                 message: "Verification completed successfully!",
-                result: (result as Record<string, unknown>) || {},
-                sessionId: (result as { sessionId?: string })?.sessionId || docvToken,
+                result: result || {},
+                sessionId: result?.sessionId || docvToken,
               };
 
               // Clear and hide the verification container
@@ -181,7 +184,7 @@ export function useVerificationSDK() {
               setIsVerifying(false);
             },
             config: {
-              deploymentStage: deploymentStage,
+              publicKey: config.sdkKey,
               qrCode: true,
             },
           }

@@ -51,13 +51,13 @@ interface IVecuIDVSDKGlobal {
     maxRetries?: number;
     logLevel?: "debug" | "info" | "warn" | "error";
     debug?: boolean;
+    bearerToken?: string;
     enableDirectAPI?: boolean;
     apiEndpoints?: {
       startVerification?: string;
     };
   }) => void;
 }
-
 
 export function useVerificationSDKHybrid() {
   const [isVerifying, setIsVerifying] = useState(false);
@@ -87,7 +87,10 @@ export function useVerificationSDKHybrid() {
         });
 
         // Load SDK bundle dynamically
-        if (typeof window !== "undefined" && !(window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK) {
+        if (
+          typeof window !== "undefined" &&
+          !(window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK
+        ) {
           try {
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement("script");
@@ -104,7 +107,9 @@ export function useVerificationSDKHybrid() {
             });
 
             // Check if VecuIDVSDK is available
-            const globalSDK = (window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK;
+            const globalSDK = (
+              window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }
+            ).VecuIDVSDK;
             if (!globalSDK) {
               throw new Error(
                 "VecuIDVSDK not found on window object after bundle load"
@@ -118,14 +123,16 @@ export function useVerificationSDKHybrid() {
           }
         }
 
-        const VecuIDVSDK = (window as unknown as { VecuIDVSDK: IVecuIDVSDKGlobal }).VecuIDVSDK;
+        const VecuIDVSDK = (
+          window as unknown as { VecuIDVSDK: IVecuIDVSDKGlobal }
+        ).VecuIDVSDK;
 
-        // Configure SDK globally with enableDirectAPI and proxy URL
+        // Configure SDK globally with bearer token
         VecuIDVSDK.configure({
-          apiUrl: "/api/vecu-proxy", // Use proxy to avoid CORS
           debug: config.isDevelopment,
           logLevel: config.isDevelopment ? "debug" : "info",
           enableDirectAPI: true,
+          bearerToken: config.token,
         });
 
         // Find and prepare the verification container
@@ -161,6 +168,8 @@ export function useVerificationSDKHybrid() {
           </div>
         `;
 
+        console.log("Calling startVerificationWithCustomer########");
+
         // Use the new hybrid method
         cleanupFnRef.current = await VecuIDVSDK.startVerificationWithCustomer(
           config.sdkKey,
@@ -181,7 +190,8 @@ export function useVerificationSDKHybrid() {
               const completionData = {
                 message: "Verification completed successfully!",
                 result: (result as Record<string, unknown>) || {},
-                sessionId: (result as { sessionId?: string })?.sessionId || "unknown",
+                sessionId:
+                  (result as { sessionId?: string })?.sessionId || "unknown",
               };
 
               // Clear and hide the verification container
