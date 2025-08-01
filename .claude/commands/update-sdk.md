@@ -22,6 +22,7 @@ Please execute the following steps in order:
 2. **Copy all built files to my-sdk-ui/public/lib/:**
    ```bash
    cp /Users/shyju.viswambaran/frontend/vecu-idv-web-sdk/dist/index.* /Users/shyju.viswambaran/frontend/my-sdk-ui/public/lib/
+   cp /Users/shyju.viswambaran/frontend/vecu-idv-web-sdk/dist/vecu-idv-sdk.bundle.js /Users/shyju.viswambaran/frontend/my-sdk-ui/public/lib/
    cp -r /Users/shyju.viswambaran/frontend/vecu-idv-web-sdk/dist/chunks /Users/shyju.viswambaran/frontend/my-sdk-ui/public/lib/
    ```
 

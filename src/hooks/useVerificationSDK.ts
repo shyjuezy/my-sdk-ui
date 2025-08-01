@@ -14,7 +14,7 @@ interface IVecuIDVSDKGlobal {
         percentage: number;
         message?: string;
       }) => void;
-      onSuccess?: (result: any) => void;
+      onSuccess?: (result: unknown) => void;
       onError?: (error: Error) => void;
       provider?: string;
       mode?: 'modal' | 'embedded';
@@ -32,11 +32,6 @@ interface IVecuIDVSDKGlobal {
   }) => void;
 }
 
-// Types for verification results
-interface VerificationResult {
-  sessionId?: string;
-  [key: string]: unknown;
-}
 
 export function useVerificationSDK() {
   const [isVerifying, setIsVerifying] = useState(false);
@@ -48,6 +43,7 @@ export function useVerificationSDK() {
     result: Record<string, unknown>;
     sessionId: string;
   } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cleanupFnRef = useRef<(() => void) | null>(null);
 
   const initializeSDKVerification = useCallback(
@@ -60,7 +56,7 @@ export function useVerificationSDK() {
         logger.sdk("Starting SDK verification initialization", { docvToken });
 
         // Load SDK bundle dynamically
-        if (typeof window !== "undefined" && !(window as any).VecuIDVSDK) {
+        if (typeof window !== "undefined" && !(window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }).VecuIDVSDK) {
           try {
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement("script");
@@ -77,9 +73,9 @@ export function useVerificationSDK() {
             });
 
             // Check if VecuIDVSDK is available
-            const globalSDK = (window as any).VecuIDVSDK as
-              | IVecuIDVSDKGlobal
-              | undefined;
+            const globalSDK = (
+              window as unknown as { VecuIDVSDK?: IVecuIDVSDKGlobal }
+            ).VecuIDVSDK;
             if (!globalSDK) {
               throw new Error(
                 "VecuIDVSDK not found on window object after bundle load"
@@ -93,7 +89,9 @@ export function useVerificationSDK() {
           }
         }
 
-        const VecuIDVSDK = (window as any).VecuIDVSDK as IVecuIDVSDKGlobal;
+        const VecuIDVSDK = (
+          window as unknown as { VecuIDVSDK: IVecuIDVSDKGlobal }
+        ).VecuIDVSDK;
 
         // Configure SDK globally
         VecuIDVSDK.configure({
@@ -160,8 +158,8 @@ export function useVerificationSDK() {
 
               const completionData = {
                 message: "Verification completed successfully!",
-                result: result || {},
-                sessionId: result?.sessionId || docvToken,
+                result: (result as Record<string, unknown>) || {},
+                sessionId: (result as { sessionId?: string })?.sessionId || docvToken,
               };
 
               // Clear and hide the verification container
@@ -180,8 +178,41 @@ export function useVerificationSDK() {
             },
             onError: (error) => {
               logger.error("Verification failed:", error);
+              
+              // Clear and hide the verification container
+              const container = document.getElementById("verification-container");
+              if (container) {
+                container.innerHTML = "";
+                container.style.display = "none";
+                container.classList.add("hidden");
+              }
+              
               setVerificationState("failed");
               setIsVerifying(false);
+              
+              // Set user-friendly error message
+              const originalMessage = (error as Error).message || '';
+              let userFriendlyMessage = '';
+              
+              if (originalMessage.includes('CORS') || originalMessage.includes('Access-Control-Allow-Origin')) {
+                userFriendlyMessage = "Unable to connect to verification service. This may be due to network restrictions or configuration issues.";
+              } else if (originalMessage.includes('Failed to fetch')) {
+                userFriendlyMessage = "Network connection error. Please check your internet connection and try again.";
+              } else if (originalMessage.includes('timeout') || originalMessage.includes('timed out')) {
+                userFriendlyMessage = "Request timed out. Please try again.";
+              } else if (originalMessage.includes('401') || originalMessage.includes('Unauthorized')) {
+                userFriendlyMessage = "Authentication failed. Please check your credentials.";
+              } else if (originalMessage.includes('403') || originalMessage.includes('Forbidden')) {
+                userFriendlyMessage = "Access denied. Please check your permissions.";
+              } else if (originalMessage.includes('404')) {
+                userFriendlyMessage = "Verification service not found. Please check your configuration.";
+              } else if (originalMessage.includes('500') || originalMessage.includes('Internal Server Error')) {
+                userFriendlyMessage = "Verification service is temporarily unavailable. Please try again later.";
+              } else {
+                userFriendlyMessage = "Something went wrong during verification. Please try again.";
+              }
+              
+              setErrorMessage(userFriendlyMessage);
             },
             config: {
               publicKey: config.sdkKey,
@@ -206,9 +237,43 @@ export function useVerificationSDK() {
         return cleanupFnRef.current;
       } catch (error) {
         console.error("SDK initialization error:", error);
+        
+        // Clear and hide the verification container
+        const container = document.getElementById("verification-container");
+        if (container) {
+          container.innerHTML = "";
+          container.style.display = "none";
+          container.classList.add("hidden");
+        }
+        
         setIsVerifying(false);
         setVerificationState("failed");
-        throw error;
+        
+        // Enhanced error handling with user-friendly messages
+        const originalMessage = (error as Error).message || '';
+        let userFriendlyMessage = '';
+        
+        if (originalMessage.includes('CORS') || originalMessage.includes('Access-Control-Allow-Origin')) {
+          userFriendlyMessage = "Unable to connect to verification service. This may be due to network restrictions or configuration issues.";
+        } else if (originalMessage.includes('Failed to fetch')) {
+          userFriendlyMessage = "Network connection error. Please check your internet connection and try again.";
+        } else if (originalMessage.includes('timeout') || originalMessage.includes('timed out')) {
+          userFriendlyMessage = "Request timed out. Please try again.";
+        } else if (originalMessage.includes('401') || originalMessage.includes('Unauthorized')) {
+          userFriendlyMessage = "Authentication failed. Please check your credentials.";
+        } else if (originalMessage.includes('403') || originalMessage.includes('Forbidden')) {
+          userFriendlyMessage = "Access denied. Please check your permissions.";
+        } else if (originalMessage.includes('404')) {
+          userFriendlyMessage = "Verification service not found. Please check your configuration.";
+        } else if (originalMessage.includes('500') || originalMessage.includes('Internal Server Error')) {
+          userFriendlyMessage = "Verification service is temporarily unavailable. Please try again later.";
+        } else {
+          userFriendlyMessage = "Something went wrong during verification. Please try again.";
+        }
+        
+        // Set the error message for UI display
+        setErrorMessage(userFriendlyMessage);
+        throw new Error(userFriendlyMessage);
       }
     },
     []
@@ -241,6 +306,7 @@ export function useVerificationSDK() {
     setVerificationState("idle");
     setCompletionData(null);
     setIsVerifying(false);
+    setErrorMessage(null); // Clear error message
 
     // Show the container again
     const container = document.getElementById("verification-container");
@@ -254,6 +320,7 @@ export function useVerificationSDK() {
     isVerifying,
     verificationState,
     completionData,
+    errorMessage,
     initializeSDKVerification,
     stopVerification,
     resetVerification,

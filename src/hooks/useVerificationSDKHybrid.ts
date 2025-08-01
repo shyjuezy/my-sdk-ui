@@ -25,7 +25,6 @@ interface IVecuIDVSDKGlobal {
     }
   ) => Promise<() => void>;
   startVerificationWithCustomer: (
-    sdkKey: string,
     containerSelector: string | HTMLElement,
     options: {
       customerInfo: CustomerInfo;
@@ -69,6 +68,7 @@ export function useVerificationSDKHybrid() {
     result: Record<string, unknown>;
     sessionId: string;
   } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cleanupFnRef = useRef<(() => void) | null>(null);
 
   const initializeSDKVerificationWithCustomer = useCallback(
@@ -172,7 +172,6 @@ export function useVerificationSDKHybrid() {
 
         // Use the new hybrid method
         cleanupFnRef.current = await VecuIDVSDK.startVerificationWithCustomer(
-          config.sdkKey,
           container,
           {
             customerInfo,
@@ -210,6 +209,15 @@ export function useVerificationSDKHybrid() {
             },
             onError: (error) => {
               logger.error("Verification failed:", error);
+              
+              // Clear and hide the verification container
+              const container = document.getElementById("verification-container");
+              if (container) {
+                container.innerHTML = "";
+                container.style.display = "none";
+                container.classList.add("hidden");
+              }
+              
               setVerificationState("failed");
               setIsVerifying(false);
             },
@@ -229,9 +237,43 @@ export function useVerificationSDKHybrid() {
         return cleanupFnRef.current;
       } catch (error) {
         console.error("SDK hybrid initialization error:", error);
+        
+        // Clear and hide the verification container
+        const container = document.getElementById("verification-container");
+        if (container) {
+          container.innerHTML = "";
+          container.style.display = "none";
+          container.classList.add("hidden");
+        }
+        
         setIsVerifying(false);
         setVerificationState("failed");
-        throw error;
+        
+        // Enhanced error handling with user-friendly messages
+        const originalMessage = (error as Error).message || '';
+        let userFriendlyMessage = '';
+        
+        if (originalMessage.includes('CORS') || originalMessage.includes('Access-Control-Allow-Origin')) {
+          userFriendlyMessage = "Unable to connect to verification service. This may be due to network restrictions or configuration issues.";
+        } else if (originalMessage.includes('Failed to fetch')) {
+          userFriendlyMessage = "Network connection error. Please check your internet connection and try again.";
+        } else if (originalMessage.includes('timeout') || originalMessage.includes('timed out')) {
+          userFriendlyMessage = "Request timed out. Please try again.";
+        } else if (originalMessage.includes('401') || originalMessage.includes('Unauthorized')) {
+          userFriendlyMessage = "Authentication failed. Please check your credentials.";
+        } else if (originalMessage.includes('403') || originalMessage.includes('Forbidden')) {
+          userFriendlyMessage = "Access denied. Please check your permissions.";
+        } else if (originalMessage.includes('404')) {
+          userFriendlyMessage = "Verification service not found. Please check your configuration.";
+        } else if (originalMessage.includes('500') || originalMessage.includes('Internal Server Error')) {
+          userFriendlyMessage = "Verification service is temporarily unavailable. Please try again later.";
+        } else {
+          userFriendlyMessage = "Something went wrong during verification. Please try again.";
+        }
+        
+        // Set the error message for UI display
+        setErrorMessage(userFriendlyMessage);
+        throw new Error(userFriendlyMessage);
       }
     },
     []
@@ -264,6 +306,7 @@ export function useVerificationSDKHybrid() {
     setVerificationState("idle");
     setCompletionData(null);
     setIsVerifying(false);
+    setErrorMessage(null); // Clear error message
 
     // Show the container again
     const container = document.getElementById("verification-container");
@@ -277,6 +320,7 @@ export function useVerificationSDKHybrid() {
     isVerifying,
     verificationState,
     completionData,
+    errorMessage,
     initializeSDKVerificationWithCustomer,
     stopVerification,
     resetVerification,

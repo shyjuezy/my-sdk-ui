@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, FlaskConical, Code2 } from "lucide-react";
+import { ArrowRight, Shield, FlaskConical, Code2, Package } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -36,13 +36,14 @@ export default function Home() {
     isVerifying,
     verificationState,
     completionData,
+    errorMessage,
     initializeSDKVerification,
     stopVerification,
     resetVerification,
   } = useVerificationSDK();
 
-  // Show form when not verifying and not completed
-  const showForm = !isVerifying && verificationState !== "completed";
+  // Show form when not verifying and not completed and not failed
+  const showForm = !isVerifying && verificationState !== "completed" && verificationState !== "failed";
 
   const verificationMutation = useMutation({
     mutationFn: startVerification,
@@ -59,14 +60,11 @@ export default function Home() {
         try {
           await initializeSDKVerification(
             response.data.provider_document_id as string,
-            response.data.provider as string,
-            "sandbox"
+            response.data.provider as string
           );
         } catch (error) {
-          showToast(
-            `Error initializing verification: ${(error as Error).message}`,
-            "error"
-          );
+          const userFriendlyMessage = getSDKErrorMessage(error as Error);
+          showToast(userFriendlyMessage, "error");
           console.error("SDK initialization error:", error);
         }
       } else if (response.success) {
@@ -101,6 +99,29 @@ export default function Home() {
       default:
         return `Error: ${error}`;
     }
+  };
+
+  // Helper function to provide user-friendly SDK error messages
+  const getSDKErrorMessage = (error: Error): string => {
+    const errorMessage = error.message || '';
+    
+    if (errorMessage.includes('CORS') || errorMessage.includes('Access-Control-Allow-Origin')) {
+      return "Unable to connect to verification service due to network restrictions. Server API mode should handle this automatically.";
+    } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network connection error')) {
+      return "Network connection error. Please check your connection and try again.";
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+      return "Request timed out. Please try again.";
+    } else if (errorMessage.includes('Authentication failed')) {
+      return "Authentication failed. Please check your API credentials in the configuration.";
+    } else if (errorMessage.includes('Access denied')) {
+      return "Access denied. Please verify your API permissions.";
+    } else if (errorMessage.includes('not found')) {
+      return "Verification service not found. Please check your API configuration.";
+    } else if (errorMessage.includes('temporarily unavailable')) {
+      return "Verification service is temporarily unavailable. Please try again later.";
+    }
+    
+    return errorMessage || "Something went wrong during verification initialization. Please try again.";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,6 +172,15 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex gap-3">
+                <Link href="/npm">
+                  <Button
+                    variant="outline"
+                    className="border-gray-300 hover:border-green-500 hover:text-green-600 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <Package className="w-4 h-4" />
+                    NPM Package Mode
+                  </Button>
+                </Link>
                 <Link href="/hybrid">
                   <Button
                     variant="outline"
@@ -206,6 +236,7 @@ export default function Home() {
               isVerifying={isVerifying}
               verificationState={verificationState}
               completionData={completionData}
+              errorMessage={errorMessage}
               onStopVerification={stopVerification}
               onContinue={() => {
                 showToast("Proceeding to next step...", "success");

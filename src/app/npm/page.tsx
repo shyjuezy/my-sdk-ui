@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield } from "lucide-react";
+import { ArrowRight, Shield, Package } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -13,14 +13,14 @@ import {
 import Link from "next/link";
 import { Toast, useToast } from "@/components/ui/toast";
 import { useCustomerForm } from "@/hooks/useCustomerForm";
-import { useVerificationSDKHybrid } from "@/hooks/useVerificationSDKHybrid";
+import { useVerificationSDKNPM } from "@/hooks/useVerificationSDKNPM";
 import { PersonalInfoSection } from "@/components/forms/PersonalInfoSection";
 import { ContactInfoSection } from "@/components/forms/ContactInfoSection";
 import { AddressInfoSection } from "@/components/forms/AddressInfoSection";
 import { VerificationContainer } from "@/components/verification/VerificationContainer";
 import type { CustomerInfo } from "@/types/customer";
 
-export default function HybridPage() {
+export default function NPMSDKPage() {
   const { toasts, showToast, removeToast } = useToast();
   const {
     formData,
@@ -39,7 +39,7 @@ export default function HybridPage() {
     initializeSDKVerificationWithCustomer,
     stopVerification,
     resetVerification,
-  } = useVerificationSDKHybrid();
+  } = useVerificationSDKNPM();
 
   // Show form when not verifying and not completed and not failed
   const showForm = !isVerifying && verificationState !== "completed" && verificationState !== "failed";
@@ -100,17 +100,17 @@ export default function HybridPage() {
         },
       };
 
-      // Start verification directly with customer info
+      // Start verification directly with customer info using NPM SDK
       await initializeSDKVerificationWithCustomer(
         customerInfo,
         "sandbox" // Default deployment stage
       );
 
-      showToast("Verification started successfully!", "success");
+      showToast("Verification started successfully with NPM SDK!", "success");
     } catch (error) {
       const userFriendlyMessage = getErrorMessage(error as Error);
       showToast(userFriendlyMessage, "error");
-      console.error("Verification error:", error);
+      console.error("NPM SDK verification error:", error);
     }
   };
 
@@ -128,27 +128,50 @@ export default function HybridPage() {
 
       <div className="min-h-screen relative overflow-hidden bg-gray-50">
         {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-white to-blue-50" />
 
         <div className="relative z-10 container mx-auto px-4 py-8">
           {/* Header */}
-          <header className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Identity Verification (Hybrid SDK)
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Testing direct customer verification via SDK
-              </p>
+          <header className="mb-12">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">
+                  Identity Verification (NPM SDK)
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Using the published vec-idp-web-sdk@1.0.0 npm package
+                </p>
+              </div>
+              <Link href="/">
+                <Button
+                  variant="outline"
+                  className="border-gray-300 hover:border-green-500 hover:text-green-600 transition-all duration-200"
+                >
+                  Back to Main Page
+                </Button>
+              </Link>
             </div>
-            <Link href="/">
-              <Button
-                variant="outline"
-                className="border-gray-300 hover:border-indigo-500 hover:text-indigo-600 transition-colors duration-200"
-              >
-                Back to Main Page
-              </Button>
-            </Link>
+
+            {/* Info Banner */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Package className="h-5 w-5 text-green-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-green-800">
+                    NPM Package Integration
+                  </h3>
+                  <div className="mt-2 text-sm text-green-700">
+                    <p>
+                      This page demonstrates identity verification using the officially published{" "}
+                      <code className="bg-green-100 px-1 rounded">vec-idp-web-sdk@1.0.0</code> npm package.
+                      The SDK handles customer data processing and verification flow directly.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </header>
 
           {/* Main Content */}
@@ -177,19 +200,23 @@ export default function HybridPage() {
               formElement={
                 <Card className="max-w-2xl mx-auto bg-white/90 backdrop-blur-sm border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
                   {/* Gradient accent */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-600" />
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-blue-600" />
 
                   <div className="relative">
                     <CardHeader className="text-center space-y-3 pb-2">
-                      <div className="mx-auto w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
+                      <div className="mx-auto w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
                         <Shield className="w-6 h-6 text-white" />
                       </div>
                       <CardTitle className="text-2xl font-semibold text-gray-900">
                         Identity Verification
                       </CardTitle>
                       <CardDescription className="text-gray-600">
-                        SDK will handle the API call and verification flow
+                        NPM SDK will handle the verification process directly
                       </CardDescription>
+                      <div className="inline-flex items-center gap-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full mt-2">
+                        <Package className="w-3 h-3" />
+                        NPM Package v1.0.0
+                      </div>
                     </CardHeader>
 
                     <form onSubmit={handleSubmit} noValidate suppressHydrationWarning>
@@ -217,7 +244,7 @@ export default function HybridPage() {
                       <CardFooter className="pt-6">
                         <Button
                           type="submit"
-                          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200"
+                          className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-100 transition-all duration-200"
                           disabled={isVerifying}
                         >
                           {isVerifying ? (
@@ -227,7 +254,7 @@ export default function HybridPage() {
                             </span>
                           ) : (
                             <span className="flex items-center gap-2">
-                              Start Verification
+                              Start NPM SDK Verification
                               <ArrowRight className="w-4 h-4" />
                             </span>
                           )}
